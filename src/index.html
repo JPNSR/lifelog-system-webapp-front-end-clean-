@@ -1,0 +1,3381 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>セカンドブレイン探索室 — Personal Database soft</title>
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+  <style>
+    :root {
+      --bg-base: #0b1120;
+      --bg-panel: #111827;
+      --bg-card: #1e293b;
+      --border-subtle: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-indigo: #818cf8;
+      --accent-emerald: #34d399;
+      --accent-amber: #fbbf24;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    .null-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.1rem 0.45rem;
+      font-size: 0.7rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: #94a3b8;
+      background: rgba(51, 65, 85, 0.45);
+      border: 1px dashed #475569;
+      border-radius: 0.25rem;
+    }
+
+    .fact-box {
+      background: rgba(15, 23, 42, 0.7);
+      border-left: 3px solid #38bdf8;
+    }
+
+    .insight-box {
+      background: rgba(49, 46, 129, 0.22);
+      border-left: 3px solid #a855f7;
+    }
+
+    .ai-eval-box {
+      background: rgba(6, 78, 59, 0.22);
+      border-left: 3px solid #10b981;
+    }
+
+    .friction-box {
+      background: rgba(120, 53, 15, 0.22);
+      border-left: 3px solid #f59e0b;
+    }
+
+    .graph-node {
+      cursor: pointer;
+      transition: transform 0.18s ease, opacity 0.18s ease;
+    }
+    .graph-node:hover circle {
+      filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.65));
+    }
+
+    @media (max-width: 768px) {
+      .mobile-bottom-pad {
+        padding-bottom: 4.5rem;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col mobile-bottom-pad">
+
+  <!-- Top Header & Data Source Mode Banner -->
+  <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-800">
+    <!-- Strict Data Origin & Safety Status Bar -->
+    <div id="modeBanner" class="bg-amber-950/80 border-b border-amber-700/60 px-3 py-1.5 text-xs flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span id="connectionStatusBadge" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          SUPABASE未接続：サンプルデータモード (SAMPLE DATA)
+        </span>
+        <span id="modeBannerDescription" class="text-amber-200/90 hidden sm:inline">
+          現在は架空のサンプルデータ（42件・10テーブル）を表示しています。実データではありません。
+        </span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] text-slate-300 font-mono bg-slate-800/90 px-2 py-0.5 rounded border border-slate-700">
+          READ-ONLY / SELECTホワイトリスト強制 / タスク催促なし
+        </span>
+        <button id="openConnectionModalBtn" type="button" class="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 transition">
+          クエリ仕様・接続設定
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Navigation Bar -->
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center shadow-md shadow-sky-900/50">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">セカンドブレイン探索室</h1>
+            <span class="text-[11px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-mono">v1.0 Canvas</span>
+          </div>
+          <p class="text-xs text-slate-400 hidden sm:block">思考・音声インサイト・デジタル活動・生体・食事・場所・運動の横断探索（非タスク管理）</p>
+        </div>
+      </div>
+
+      <!-- Desktop Navigation Tabs -->
+      <nav class="hidden md:flex items-center gap-1 bg-slate-950/90 p-1 rounded-lg border border-slate-800" aria-label="画面切り替え">
+        <button type="button" data-view="graph" class="nav-tab-btn px-3.5 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5 bg-sky-600 text-white shadow">
+          <span>🕸️</span> 1. ナレッジグラフ
+        </button>
+        <button type="button" data-view="timeline" class="nav-tab-btn px-3.5 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+          <span>⏱️</span> 2. 統合タイムライン
+        </button>
+        <button type="button" data-view="search" class="nav-tab-btn px-3.5 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+          <span>🔍</span> 3. クロス検索 &amp; 出力
+        </button>
+      </nav>
+
+      <!-- Global Quick Stats -->
+      <div class="flex items-center gap-2 text-xs">
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded px-2.5 py-1 flex items-center gap-1.5">
+          <span class="text-slate-400">総レコード:</span>
+          <strong id="globalRecordCount" class="text-sky-400 font-mono">0</strong>
+          <span class="text-slate-500">件</span>
+        </div>
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded px-2.5 py-1 hidden lg:flex items-center gap-1.5">
+          <span class="text-slate-400">登録タグ辞書:</span>
+          <strong id="globalTagCount" class="text-indigo-400 font-mono">0</strong>
+          <span class="text-slate-500">語</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4">
+
+    <!-- =================================================================== -->
+    <!-- VIEW 1: ナレッジグラフ (Knowledge Graph)                              -->
+    <!-- =================================================================== -->
+    <section id="view-graph" class="space-y-4">
+      <!-- Filter Bar for Graph -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 shadow-sm">
+        <div class="flex flex-wrap items-end gap-3">
+          <div class="flex-1 min-w-[180px]">
+            <label for="graphTagSearch" class="block text-xs text-slate-400 mb-1">タグ検索 (`tag_dictionary.tag_name`)</label>
+            <input id="graphTagSearch" type="text" placeholder="例: AIアーキテクチャ, メタ認知, 自律神経..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div class="w-40 sm:w-44">
+            <label for="graphCategoryFilter" class="block text-xs text-slate-400 mb-1">関連カテゴリ絞り込み</label>
+            <select id="graphCategoryFilter" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+              <option value="ALL">すべてのカテゴリ</option>
+            </select>
+          </div>
+          <div class="w-36">
+            <label for="graphDateFrom" class="block text-xs text-slate-400 mb-1">期間（開始日 JST）</label>
+            <input id="graphDateFrom" type="date" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div class="w-36">
+            <label for="graphDateTo" class="block text-xs text-slate-400 mb-1">期間（終了日 JST）</label>
+            <input id="graphDateTo" type="date" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div class="w-44">
+            <label for="graphSortOrder" class="block text-xs text-slate-400 mb-1">タグ一覧の並び順</label>
+            <select id="graphSortOrder" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+              <option value="usage_desc">usage_count 降順（頻度順）</option>
+              <option value="last_seen_desc">last_seen_at 降順（最新トレンド）</option>
+            </select>
+          </div>
+          <button id="graphResetBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+            条件クリア
+          </button>
+        </div>
+      </div>
+
+      <!-- Graph Canvas + Tag List + Selected Tag Inspector -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <!-- Left: Tag Dictionary Trend List -->
+        <div class="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col h-[320px] lg:h-[600px]">
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+            <div>
+              <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider">tag_dictionary 一覧</h2>
+              <p class="text-[11px] text-slate-400">クリックでグラフノードと連動</p>
+            </div>
+            <span id="graphTagListCount" class="text-xs font-mono text-sky-400">0件</span>
+          </div>
+          <div id="tagDictionaryList" class="flex-1 overflow-y-auto space-y-1.5 pr-1"></div>
+        </div>
+
+        <!-- Center: Interactive SVG Knowledge Graph -->
+        <div class="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-xl flex flex-col h-[480px] lg:h-[600px] relative overflow-hidden">
+          <!-- Graph Top Control Bar -->
+          <div class="p-2.5 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs z-10">
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- 戻る・進む探索ナビボタン -->
+              <div class="flex items-center rounded-lg bg-slate-950 border border-slate-700/80 p-0.5 shadow-xs" title="タグ探索履歴のナビゲーション">
+                <button id="graphHistoryBackBtn" type="button" disabled class="px-2 py-1 rounded text-slate-400 disabled:opacity-30 disabled:hover:text-slate-400 hover:text-white hover:bg-slate-800 transition flex items-center gap-1 text-[11px]" title="前の探索タグに戻る">
+                  ◀ <span class="hidden sm:inline">戻る</span>
+                </button>
+                <div class="w-[1px] h-3 bg-slate-700 mx-0.5"></div>
+                <button id="graphHistoryForwardBtn" type="button" disabled class="px-2 py-1 rounded text-slate-400 disabled:opacity-30 disabled:hover:text-slate-400 hover:text-white hover:bg-slate-800 transition flex items-center gap-1 text-[11px]" title="次の探索タグに進む">
+                  <span class="hidden sm:inline">進む</span> ▶
+                </button>
+              </div>
+
+              <!-- 表示モード切替: 案A (フォーカス) / 案B (全体俯瞰) -->
+              <div class="flex items-center rounded-lg bg-slate-950 border border-slate-700/80 p-0.5 shadow-xs" role="radiogroup" aria-label="グラフ表示モード">
+                <button id="graphModeFocusBtn" type="button" class="px-2.5 py-1 rounded text-[11px] font-semibold transition bg-sky-600 text-white shadow-sm flex items-center gap-1" title="選択タグと共起タグに集中（案A）">
+                  🎯 <span>フォーカス</span>
+                </button>
+                <button id="graphModeOverviewBtn" type="button" class="px-2.5 py-1 rounded text-[11px] font-medium transition text-slate-400 hover:text-white flex items-center gap-1" title="多重リングで全体俯瞰（案B）">
+                  🌐 <span>全体俯瞰</span>
+                </button>
+              </div>
+
+              <!-- 案B用 表示件数制限 (Top N) -->
+              <div id="graphLimitControl" class="items-center gap-1 hidden">
+                <label for="graphNodeLimit" class="text-[10px] text-slate-400">上位:</label>
+                <select id="graphNodeLimit" class="bg-slate-950 border border-slate-700 text-slate-200 rounded px-1.5 py-0.5 text-[11px] focus:outline-none focus:border-sky-500">
+                  <option value="15">Top 15</option>
+                  <option value="25" selected>Top 25</option>
+                  <option value="40">Top 40</option>
+                  <option value="ALL">全タグ</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- ズーム・中央リセット操作 -->
+            <div class="flex items-center gap-1">
+              <button id="graphZoomInBtn" type="button" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-200 border border-slate-700 text-xs" title="拡大">＋</button>
+              <button id="graphZoomOutBtn" type="button" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-200 border border-slate-700 text-xs" title="縮小">－</button>
+              <button id="graphZoomResetBtn" type="button" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 border border-slate-700 text-[11px]">リセット</button>
+            </div>
+          </div>
+
+          <!-- 探索軌跡（パンくずリスト / 現在の探索位置） -->
+          <div id="graphBreadcrumbBar" class="px-3 py-1.5 bg-slate-950/95 border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto text-xs z-10 shrink-0 text-slate-300">
+            <span class="text-[10px] uppercase font-mono text-slate-500 shrink-0">探索軌跡:</span>
+            <div id="graphBreadcrumbTrail" class="flex items-center gap-1 shrink-0"></div>
+          </div>
+
+          <div class="flex-1 relative select-none" id="svgGraphWrapper">
+            <svg id="knowledgeGraphSvg" class="w-full h-full cursor-grab active:cursor-grabbing" viewBox="0 0 700 520" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <radialGradient id="nodeGlowSelected" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.95" />
+                  <stop offset="100%" stop-color="#0284c7" stop-opacity="0.85" />
+                </radialGradient>
+                <radialGradient id="nodeGlowDefault" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#6366f1" stop-opacity="0.9" />
+                  <stop offset="100%" stop-color="#312e81" stop-opacity="0.9" />
+                </radialGradient>
+                <radialGradient id="nodeGlowNeighbor" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.95" />
+                  <stop offset="100%" stop-color="#0f766e" stop-opacity="0.85" />
+                </radialGradient>
+                <filter id="nodeShadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.6"/>
+                </filter>
+              </defs>
+              <g id="graphViewport">
+                <g id="graphEdgesGroup"></g>
+                <g id="graphNodesGroup"></g>
+              </g>
+            </svg>
+            <!-- ホバー用フローティングチップ -->
+            <div id="graphTooltip" class="hidden pointer-events-none absolute z-20 px-2.5 py-1.5 rounded-lg bg-slate-900/95 border border-slate-700 text-white text-xs shadow-xl font-mono"></div>
+          </div>
+
+          <!-- Graph Footer Legend -->
+          <div class="px-3 py-1.5 bg-slate-900/90 border-t border-slate-800 text-[11px] text-slate-400 flex flex-wrap items-center justify-between gap-2">
+            <div id="graphLegendContainer" class="flex items-center gap-3"></div>
+            <span id="graphSubInfoText" class="text-slate-500 font-mono text-[10px]">※推測エッジ生成なし</span>
+          </div>
+        </div>
+
+        <!-- Right: Selected Tag Details & Related Records -->
+        <div class="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col h-[480px] lg:h-[600px]">
+          <div id="selectedTagHeader" class="pb-3 mb-3 border-b border-slate-800">
+            <!-- Populated dynamically -->
+          </div>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-semibold text-slate-300">一致する取得済み記録（`daily_logs` / `voice_insights` / `digital_activity_logs`）</h3>
+            <span id="selectedTagRecordCount" class="text-xs font-mono text-sky-400">0件</span>
+          </div>
+          <div id="selectedTagRecordsList" class="flex-1 overflow-y-auto space-y-2.5 pr-1"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 2: 統合タイムライン (Integrated Timeline)                       -->
+    <!-- =================================================================== -->
+    <section id="view-timeline" class="space-y-4 hidden">
+      <!-- Timeline Filter Controls -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 shadow-sm space-y-3">
+        <div class="flex flex-wrap items-end gap-3">
+          <div class="flex-1 min-w-[200px]">
+            <label for="timelineKeyword" class="block text-xs text-slate-400 mb-1">キーワード検索</label>
+            <input id="timelineKeyword" type="text" placeholder="事実、深層洞察、音声インサイト、場所、種目などを検索..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div class="w-44">
+            <label for="timelineSourceFilter" class="block text-xs text-slate-400 mb-1">ソース種別</label>
+            <select id="timelineSourceFilter" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+              <option value="ALL">すべての情報源</option>
+              <option value="daily_logs">daily_logs (日次サマリー)</option>
+              <option value="voice_insights">voice_insights (音声知的資産)</option>
+              <option value="quick_memos">quick_memos (メモ・TODOダンプ)</option>
+              <option value="digital_activity_logs">digital_activity_logs (PC活動)</option>
+              <option value="location_logs">location_logs (滞在場所)</option>
+              <option value="health_logs">health_logs (身体データ)</option>
+              <option value="workout_logs">workout_logs (トレーニング)</option>
+              <option value="media_logs">media_logs (写真・動画メタ)</option>
+              <option value="meal_logs">meal_logs (食事)</option>
+            </select>
+          </div>
+          <div class="w-36">
+            <label for="timelineDateFrom" class="block text-xs text-slate-400 mb-1">開始日 (JST)</label>
+            <input id="timelineDateFrom" type="date" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div class="w-36">
+            <label for="timelineDateTo" class="block text-xs text-slate-400 mb-1">終了日 (JST)</label>
+            <input id="timelineDateTo" type="date" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div class="w-40">
+            <label for="timelineSortOrder" class="block text-xs text-slate-400 mb-1">日付の並び順</label>
+            <select id="timelineSortOrder" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+              <option value="desc">新しい順 (降順)</option>
+              <option value="asc">古い順 (昇順)</option>
+            </select>
+          </div>
+          <button id="timelineResetBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+            条件リセット
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-xs text-slate-400">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-sky-400"></span>事実・行動 (`daily_summary` 等)</span>
+            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-purple-400"></span>深層洞察 (`metacognitive_insight`)</span>
+            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400"></span>AI評価・記述 (`coach_feedback` / `scene_description` / `mental_status`)</span>
+            <span class="inline-flex items-center gap-1"><span class="null-badge">NULL</span> 未記録（0や空文字に置換しない）</span>
+          </div>
+          <div id="timelineCountSummary" class="font-mono text-sky-400"></div>
+        </div>
+      </div>
+
+      <!-- Grouped Daily Timeline Stream -->
+      <div id="timelineGroupsContainer" class="space-y-6"></div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 3: クロス検索 & エクスポート (Cross Search & Export)             -->
+    <!-- =================================================================== -->
+    <section id="view-search" class="space-y-4 hidden">
+      <!-- Cross Search Filter Panel -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 shadow-sm space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+          <div class="sm:col-span-2">
+            <label for="searchKeyword" class="block text-xs text-slate-400 mb-1">横断キーワード検索（全10テーブル対象）</label>
+            <input id="searchKeyword" type="text" placeholder="検索語を入力（タイトル・本文・品目・場所・タグなど）..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div>
+            <label for="searchSourceFilter" class="block text-xs text-slate-400 mb-1">ソース種別 (`source_type`)</label>
+            <select id="searchSourceFilter" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+              <option value="ALL">すべてのソース (10種)</option>
+              <option value="daily_logs">daily_logs</option>
+              <option value="voice_insights">voice_insights</option>
+              <option value="quick_memos">quick_memos</option>
+              <option value="tag_dictionary">tag_dictionary</option>
+              <option value="digital_activity_logs">digital_activity_logs</option>
+              <option value="location_logs">location_logs</option>
+              <option value="health_logs">health_logs</option>
+              <option value="workout_logs">workout_logs</option>
+              <option value="media_logs">media_logs</option>
+              <option value="meal_logs">meal_logs</option>
+            </select>
+          </div>
+          <div>
+            <label for="searchCategoryFilter" class="block text-xs text-slate-400 mb-1">カテゴリ (`category`)</label>
+            <select id="searchCategoryFilter" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+              <option value="ALL">すべてのカテゴリ</option>
+            </select>
+          </div>
+          <div>
+            <label for="searchTagFilter" class="block text-xs text-slate-400 mb-1">タグ (`tags`)</label>
+            <select id="searchTagFilter" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500">
+              <option value="ALL">すべてのタグ</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button id="searchResetBtn" type="button" class="w-full px-3 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 transition font-medium">
+              フィルター解除
+            </button>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800">
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2">
+              <label for="searchDateFrom" class="text-xs text-slate-400">日付範囲 (JST):</label>
+              <input id="searchDateFrom" type="date" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white" />
+              <span class="text-slate-500">〜</span>
+              <input id="searchDateTo" type="date" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white" />
+            </div>
+            <label class="inline-flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+              <input id="searchIncludeDateless" type="checkbox" checked class="rounded border-slate-600 bg-slate-950 text-sky-500" />
+              <span>日付を持たない/未記録のレコードも含める</span>
+            </label>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400">検索結果:</span>
+            <strong id="searchResultCount" class="text-sm font-mono text-sky-400">0</strong>
+            <span class="text-xs text-slate-400">件</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pre-Export Confirmation & Summary Box (Section 8 Strict Compliance) -->
+      <div class="bg-slate-900/90 border border-sky-900/60 rounded-xl p-3.5 sm:p-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+        <div class="space-y-1.5 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-bold text-sky-300 uppercase tracking-wider">📦 現在の検索結果エクスポート確認パネル</span>
+            <span id="exportDataOriginBadge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              DATA_ORIGIN: SAMPLE_DATA (架空サンプル)
+            </span>
+          </div>
+          <p id="exportFilterSummaryText" class="text-xs text-slate-300"></p>
+          <div id="exportSourceBreakdownBadges" class="flex flex-wrap gap-1.5 pt-0.5"></div>
+          <p class="text-[11px] text-slate-400">
+            ※セクション4で定義された取得対象カラム（`source_fields`）のみを出力します。ID・全文文字起こし（`raw_transcript`）・生JSON・緯度経度などの除外カラムは一切含まれません。
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 shrink-0 w-full lg:w-auto justify-end">
+          <button id="exportJsonBtn" type="button" class="flex-1 sm:flex-initial px-3.5 py-2 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow transition flex items-center justify-center gap-1.5">
+            <span>⬇️</span> JSONをダウンロード
+          </button>
+          <button id="exportCsvBtn" type="button" class="flex-1 sm:flex-initial px-3.5 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow transition flex items-center justify-center gap-1.5">
+            <span>⬇️</span> CSVをダウンロード
+          </button>
+        </div>
+      </div>
+
+      <!-- Cross Search Results Grid -->
+      <div id="searchResultsContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5"></div>
+
+      <!-- Empty State -->
+      <div id="searchEmptyState" class="hidden bg-slate-900 border border-slate-800 rounded-xl p-10 text-center space-y-3">
+        <div class="text-3xl">🔍</div>
+        <h3 class="text-sm font-bold text-slate-200">条件に一致する記録は0件です</h3>
+        <p class="text-xs text-slate-400 max-w-md mx-auto">
+          キーワードや日付範囲、カテゴリ、タグの絞り込み条件を変更するか、下のボタンからフィルターを解除してください。
+        </p>
+        <button id="emptyStateResetBtn" type="button" class="px-4 py-2 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white transition">
+          すべてのフィルターを解除する
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Mobile Bottom Navigation Bar -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur border-t border-slate-800 grid grid-cols-3 p-1.5 gap-1" aria-label="モバイル画面切り替え">
+    <button type="button" data-view="graph" class="nav-tab-btn py-2 rounded-lg text-xs font-medium flex flex-col items-center justify-center gap-0.5 bg-sky-600 text-white">
+      <span>🕸️</span>
+      <span class="text-[11px]">ナレッジグラフ</span>
+    </button>
+    <button type="button" data-view="timeline" class="nav-tab-btn py-2 rounded-lg text-xs font-medium flex flex-col items-center justify-center gap-0.5 text-slate-400">
+      <span>⏱️</span>
+      <span class="text-[11px]">タイムライン</span>
+    </button>
+    <button type="button" data-view="search" class="nav-tab-btn py-2 rounded-lg text-xs font-medium flex flex-col items-center justify-center gap-0.5 text-slate-400">
+      <span>🔍</span>
+      <span class="text-[11px]">クロス検索</span>
+    </button>
+  </nav>
+
+  <!-- ===================================================================== -->
+  <!-- SLIDE-OVER DETAIL PANEL (Record Inspector)                            -->
+  <!-- ===================================================================== -->
+  <div id="detailDrawerBackdrop" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 hidden transition-opacity"></div>
+  <aside id="detailDrawer" class="fixed top-0 right-0 bottom-0 w-full max-w-xl bg-slate-900 border-l border-slate-800 z-50 transform translate-x-full transition-transform duration-200 flex flex-col shadow-2xl" aria-label="記録詳細パネル">
+    <div class="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span id="detailSourceBadge" class="text-xs font-mono px-2 py-0.5 rounded"></span>
+        <span id="detailOriginBadge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30"></span>
+      </div>
+      <button id="closeDetailDrawerBtn" type="button" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700">
+        ✕ 閉じる
+      </button>
+    </div>
+
+    <div id="detailDrawerContent" class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
+      <!-- Populated dynamically -->
+    </div>
+  </aside>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL: PHASE B SUPABASE QUERY WHITELIST & CONNECTION PREPAREDNESS     -->
+  <!-- ===================================================================== -->
+  <div id="connectionModalBackdrop" class="fixed inset-0 bg-black/75 backdrop-blur-xs z-50 hidden flex items-center justify-center p-3 sm:p-6">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+        <div>
+          <h2 class="text-sm sm:text-base font-bold text-white">フェーズB：データ取得層（SELECTホワイトリスト）とSupabase接続設定</h2>
+          <p class="text-xs text-slate-400">select('*')の完全禁止・除外カラムのクエリ除外・読み取り専用（GETのみ）の安全設計</p>
+        </div>
+        <button id="closeConnectionModalBtn" type="button" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">
+          ✕ 閉じる
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5 text-xs">
+        <!-- Current Mode Status -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-200">現在のデータソース状態</span>
+            <span id="modalConnectionStateText" class="font-mono text-amber-400">SAMPLE_MODE (Supabase未接続)</span>
+          </div>
+          <p class="text-slate-400">
+            初期状態では安全のためSupabaseへ通信を行わず、30件以上の整合性ある架空サンプルデータ（全10テーブル・計42件）で全機能を操作できます。
+            また、下部でRead-Only（anon）接続情報を入力した場合も、<strong>INSERT / UPDATE / DELETE やスキーマ変更は一切行わず、定義済みカラムのみの GET クエリだけ</strong>を実行します。
+          </p>
+        </div>
+
+        <!-- Optional Read-Only Connection Test (Phase B) -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3">
+          <h3 class="font-bold text-sky-400">Supabase Read-Only 接続切り替え（任意・GET専用）</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="supabaseUrlInput" class="block text-slate-400 mb-1">Supabase Project URL (`https://xxx.supabase.co`)</label>
+              <input id="supabaseUrlInput" type="url" placeholder="https://your-project.supabase.co" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono text-xs" />
+            </div>
+            <div>
+              <label for="supabaseAnonKeyInput" class="block text-slate-400 mb-1">Anon Key (公開Read-Onlyキー ※service_roleキーは拒否します)</label>
+              <input id="supabaseAnonKeyInput" type="password" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono text-xs" />
+            </div>
+          </div>
+          <div id="connectionErrorBox" class="hidden p-2.5 rounded bg-rose-950/80 border border-rose-700 text-rose-200"></div>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-[11px] text-slate-400">※キーはメモリ上のみで使用し、外部送信や永続保存は行いません。権限エラー時は緩めずエラー表示します。</span>
+            <div class="flex items-center gap-2">
+              <button id="switchToSampleModeBtn" type="button" class="px-3 py-1.5 rounded bg-amber-600/30 hover:bg-amber-600/40 text-amber-200 border border-amber-500/40 font-medium">
+                サンプルデータモードに戻す
+              </button>
+              <button id="connectSupabaseBtn" type="button" class="px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-medium">
+                Read-Only接続を試行 (GETのみ)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table-by-Table Strict Column Mapping & Generated Query Audit -->
+        <div class="space-y-2">
+          <h3 class="font-bold text-slate-200">テーブル別・正規SELECTカラム定義 &amp; 除外カラム監査表</h3>
+          <p class="text-slate-400">データ取得層（`SupabaseRepository`）は以下の固定カラムリストのみからRESTクエリを組み立てます。</p>
+          <div id="schemaAuditTableContainer" class="overflow-x-auto border border-slate-800 rounded-xl"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Script -->
+  <script>
+    /**
+     * =========================================================================
+     * 0. アプリケーション接続プロパティ設定（公開用プレースホルダー）
+     * - 初期状態（プレースホルダーのまま）では、安全のため外部通信を行わず
+     *   内蔵の架空サンプルデータモード (SAMPLE) で起動します。
+     * - 画面右上の「クエリ仕様・接続設定」ボタンから実行時に接続情報を入力するか、
+     *   個人環境で固定接続する場合は以下のプレースホルダーを書き換えてください。
+     *   ※公開リポジトリ（GitHub等）へPushする際は実URL・キーを含めないでください。
+     * =========================================================================
+     */
+    const APP_CONFIG = Object.freeze({
+      SUPABASE_URL: "YOUR_SUPABASE_PROJECT_URL", // 例: "https://your-project-id.supabase.co"
+      SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY" // 例: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." (※anonキー専用)
+    });
+
+    /**
+     * =========================================================================
+     * 1. 正規スキーマ定義（セクション3 & セクション4 の絶対ルール）
+     * - select('*') 禁止
+     * - 取得カラムを厳密に固定し、除外カラムはSELECT対象に一切含めない
+     * =========================================================================
+     */
+    const STRICT_TABLE_SCHEMAS = Object.freeze({
+      daily_logs: {
+        label: "daily_logs (日次サマリー・メタ認知)",
+        badgeColor: "bg-sky-500/20 text-sky-300 border-sky-500/40",
+        dotColor: "#38bdf8",
+        selectColumns: [
+          "record_date",
+          "daily_summary",
+          "mental_status",
+          "semantic_keywords",
+          "unresolved_frictions",
+          "metacognitive_insight"
+        ],
+        excludedColumns: [
+          "id",
+          "created_at",
+          "updated_at",
+          "summary_generated_at",
+          "seq_no"
+        ],
+        orderBy: "record_date.desc"
+      },
+      voice_insights: {
+        label: "voice_insights (音声知的資産)",
+        badgeColor: "bg-indigo-500/20 text-indigo-300 border-indigo-500/40",
+        dotColor: "#818cf8",
+        selectColumns: [
+          "created_at",
+          "title",
+          "category",
+          "speaker",
+          "insight",
+          "tags",
+          "next_action"
+        ],
+        excludedColumns: [
+          "raw_transcript",
+          "id",
+          "audio_file_id",
+          "start_time_sec",
+          "end_time_sec",
+          "embedding",
+          "status",
+          "seq_no"
+        ],
+        orderBy: "created_at.desc"
+      },
+      quick_memos: {
+        label: "quick_memos (メモ・ジャーナル・TODOダンプ)",
+        badgeColor: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+        dotColor: "#fbbf24",
+        selectColumns: [
+          "created_at",
+          "record_date",
+          "category",
+          "content"
+        ],
+        excludedColumns: [
+          "id",
+          "daily_log_id",
+          "discord_message_id",
+          "image_urls"
+        ],
+        orderBy: "created_at.desc"
+      },
+      tag_dictionary: {
+        label: "tag_dictionary (タグと関心トレンド)",
+        badgeColor: "bg-purple-500/20 text-purple-300 border-purple-500/40",
+        dotColor: "#c084fc",
+        selectColumns: [
+          "tag_name",
+          "usage_count",
+          "last_seen_at"
+        ],
+        excludedColumns: [
+          "ai_description"
+        ],
+        orderBy: "usage_count.desc"
+      },
+      digital_activity_logs: {
+        label: "digital_activity_logs (デジタル活動・PC操作)",
+        badgeColor: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40",
+        dotColor: "#22d3ee",
+        selectColumns: [
+          "start_time",
+          "activity_category",
+          "platform",
+          "action_summary",
+          "tags"
+        ],
+        excludedColumns: [
+          "detailed_content",
+          "metadata",
+          "id",
+          "daily_log_id",
+          "source_id",
+          "end_time",
+          "target_name",
+          "target_url"
+        ],
+        orderBy: "start_time.desc"
+      },
+      location_logs: {
+        label: "location_logs (移動・滞在場所)",
+        badgeColor: "bg-teal-500/20 text-teal-300 border-teal-500/40",
+        dotColor: "#2dd4bf",
+        selectColumns: [
+          "recorded_at",
+          "place_name"
+        ],
+        excludedColumns: [
+          "latitude",
+          "longitude",
+          "speed",
+          "id",
+          "daily_log_id"
+        ],
+        orderBy: "recorded_at.desc"
+      },
+      health_logs: {
+        label: "health_logs (身体データ)",
+        badgeColor: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+        dotColor: "#34d399",
+        selectColumns: [
+          "record_date",
+          "sleep_hours",
+          "steps",
+          "resting_heart_rate",
+          "hrv_rmssd"
+        ],
+        excludedColumns: [
+          "raw_data",
+          "synced_at",
+          "step_count",
+          "sleep_deep_min",
+          "sleep_light_min",
+          "sleep_rem_min",
+          "sleep_awake_min",
+          "protein_g",
+          "fat_g",
+          "carbs_g",
+          "blood_pressure_systolic",
+          "body_temperature_c",
+          "blood_glucose_avg",
+          "id",
+          "daily_log_id"
+        ],
+        orderBy: "record_date.desc"
+      },
+      workout_logs: {
+        label: "workout_logs (トレーニング)",
+        badgeColor: "bg-lime-500/20 text-lime-300 border-lime-500/40",
+        dotColor: "#a3e635",
+        selectColumns: [
+          "record_date",
+          "workout_type",
+          "summary",
+          "coach_feedback"
+        ],
+        excludedColumns: [
+          "raw_text",
+          "id"
+        ],
+        orderBy: "record_date.desc"
+      },
+      media_logs: {
+        label: "media_logs (写真・動画メタデータ)",
+        badgeColor: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40",
+        dotColor: "#e879f9",
+        selectColumns: [
+          "shot_at",
+          "location_address",
+          "scene_description"
+        ],
+        excludedColumns: [
+          "raw_exif_data",
+          "latitude",
+          "longitude",
+          "altitude",
+          "gps_timestamp",
+          "gps_accuracy",
+          "compass_direction",
+          "f_number",
+          "iso_speed",
+          "id",
+          "daily_log_id"
+        ],
+        orderBy: "shot_at.desc"
+      },
+      meal_logs: {
+        label: "meal_logs (食事)",
+        badgeColor: "bg-rose-500/20 text-rose-300 border-rose-500/40",
+        dotColor: "#fb7185",
+        selectColumns: [
+          "recorded_at",
+          "meal_type",
+          "food_items",
+          "calories_kcal"
+        ],
+        excludedColumns: [
+          "protein_g",
+          "fat_g",
+          "carbs_g",
+          "micronutrients",
+          "ai_confidence_score",
+          "latitude",
+          "longitude",
+          "id",
+          "daily_log_id",
+          "media_log_id"
+        ],
+        orderBy: "recorded_at.desc"
+      }
+    });
+
+    /**
+     * =========================================================================
+     * 2. 架空サンプルデータ（フェーズA：全10テーブル・計42件・NULLケース含む）
+     * - 取得対象カラムのみを保持し、除外カラムは一切含めない
+     * =========================================================================
+     */
+    const SAMPLE_DATABASE = Object.freeze({
+      daily_logs: [
+        {
+          record_date: "2026-10-14",
+          daily_summary: "08:30 都内のカフェにてデータ探索UIの設計メモを整理。11:00 GASバッチのSELECTカラム最小化仕様を確認。15:00 加重懸垂セッションを実施。19:30 音声ログから今週のアーキテクチャ改善案を棚卸し。",
+          mental_status: "Calm & Analytical (安静時心拍52bpm・HRV 68msに基づく高集中判定)",
+          semantic_keywords: ["AIアーキテクチャ", "セカンドブレイン", "Supabase設計", "メタ認知", "自律神経"],
+          unresolved_frictions: [
+            "media_logsとmeal_logsの結合キーを絞った際のUI上での独立表示バランスの最適化",
+            "長時間のPC設計作業後に歩数が低下する傾向の緩和"
+          ],
+          metacognitive_insight: "情報の『全件取得』から『文脈に必要なカラムだけを厳選して見る』設計へ移行したことで、認知負荷が大幅に下がり、思考の抽象度が一段上がっている。"
+        },
+        {
+          record_date: "2026-10-13",
+          daily_summary: "09:15 睡眠7.8時間で起床。午前中はRLSポリシーと読み取り専用クエリの境界条件を検証。午後はGoogle Drive上のドキュメント構造を整理し、夕方に近隣の公園周辺をウォーキング。",
+          mental_status: "Balanced Recovery (睡眠回復良好)",
+          semantic_keywords: ["Supabase設計", "RLSセキュリティ", "ナレッジグラフ", "音声思考ログ"],
+          unresolved_frictions: [
+            "タグの粒度が細かすぎるものと抽象的なものの混在"
+          ],
+          metacognitive_insight: "セキュリティ境界（RLSとSELECT制限）を厳密に定義する作業は、自身の知的資産の『公開範囲と核』を見極める内省プロセスそのものとして機能している。"
+        },
+        {
+          record_date: "2026-10-12",
+          daily_summary: "10:00 週末の音声インサイト3本を振り返り。13:00 食事記録と睡眠データの相関を確認。17:00 加重ディップスを実施後、サウナと交代浴でリカバリー。",
+          mental_status: "Deep Restorative (副交感神経優位)",
+          semantic_keywords: ["メタ認知", "自律神経", "トレーニング理論", "セカンドブレイン"],
+          unresolved_frictions: null,
+          metacognitive_insight: "高強度な筋力トレーニング直後の音声メモは、デスク上のメモよりも課題の本質を突いた短文インサイトが出やすい。"
+        },
+        {
+          record_date: "2026-10-11",
+          daily_summary: "08:00 早朝に研究ノートとTODOダンプを棚卸し。11:30 外部API連携時のエラーハンドリングとNULL安全表示の設計。夜は読書とジャーナル記述。",
+          mental_status: "Focused (やや交感神経優位)",
+          semantic_keywords: ["AIアーキテクチャ", "プロンプト設計", "データモデリング"],
+          unresolved_frictions: [
+            "NULL値と0を混同しない可視化コンポーネントの統一ルール策定"
+          ],
+          metacognitive_insight: "欠損値（NULL）を推測で埋めずに『記録なし』としてそのまま受け入れる姿勢が、客観的な自己観察の精度を支えている。"
+        }
+      ],
+
+      voice_insights: [
+        {
+          created_at: "2026-10-14T10:15:00+09:00",
+          title: "カラム制限が生む探索UIのノイズ削減効果",
+          category: "システム・AIアーキテクチャ",
+          speaker: "ユーザー (Sample)",
+          insight: "セカンドブレインのUIでは、生文字起こし(raw_transcript)や不要なシステムIDを最初からSELECTしないことで、画面上の情報密度が上がり、タグ同士の抽象的なつながりに集中できる。",
+          tags: ["AIアーキテクチャ", "セカンドブレイン", "Supabase設計"],
+          next_action: ["各テーブルのSELECT句ホワイトリストをフロントエンドの取得層に固定実装する"]
+        },
+        {
+          created_at: "2026-10-14T18:40:00+09:00",
+          title: "タスク催促を排した純粋な観察環境",
+          category: "思考法・哲学",
+          speaker: "ユーザー (Sample)",
+          insight: "期限やリマインダーで行動を強制するツールは短期的な処理には向くが、長期的な知的発酵を妨げる。過去の事実と当時の洞察を静かに並置するだけの空間が最も内発的動機を高める。",
+          tags: ["メタ認知", "セカンドブレイン", "音声思考ログ"],
+          next_action: null
+        },
+        {
+          created_at: "2026-10-13T14:20:00+09:00",
+          title: "ナレッジグラフにおける共起タグの発見性",
+          category: "システム・AIアーキテクチャ",
+          speaker: "ユーザー (Sample)",
+          insight: "タグ単体の出現回数だけでなく、『自律神経』と『AIアーキテクチャ』が同じ日に共起している実績をグラフの線で結ぶことで、体調と設計思考の隠れたリズムが浮かび上がる。",
+          tags: ["ナレッジグラフ", "メタ認知", "自律神経", "AIアーキテクチャ"],
+          next_action: ["共起エッジの計算ロジックを実タグ一致のみで実装する"]
+        },
+        {
+          created_at: "2026-10-12T17:50:00+09:00",
+          title: "神経系疲労と高重量トレーニング後の思考クリアランス",
+          category: "ヘルスケア・身体論",
+          speaker: "ユーザー (Sample)",
+          insight: "加重ディップスで高負荷を扱った直後は、脳内の瑣末なマルチタスク思考が強制リセットされ、単一の構造的課題に対する解像度が上がる感覚がある。",
+          tags: ["トレーニング理論", "自律神経", "メタ認知"],
+          next_action: ["トレーニング実施日の音声インサイトとHRVの推移を日次タイムラインで比較する"]
+        },
+        {
+          created_at: "2026-10-11T11:05:00+09:00",
+          title: "NULLを0に置換しないデータ誠実性",
+          category: "データエンジニアリング",
+          speaker: "ユーザー (Sample)",
+          insight: "ウェアラブルを外していた日の心拍数や歩数がNULLであるとき、それを0と表示すると平均値も文脈も破壊される。NULLは『未計測という事実』として明示する必要がある。",
+          tags: ["データモデリング", "Supabase設計", "RLSセキュリティ"],
+          next_action: null
+        }
+      ],
+
+      quick_memos: [
+        {
+          created_at: "2026-10-14T08:45:00+09:00",
+          record_date: "2026-10-14",
+          category: "journal",
+          content: "朝の珈琲を飲みながら昨日までのログを俯瞰。事実（daily_summary）と解釈（metacognitive_insight）を分けて読むと、自分の思い込みのクセが客観的に見えて面白い。"
+        },
+        {
+          created_at: "2026-10-14T12:30:00+09:00",
+          record_date: "2026-10-14",
+          category: "todo_dump",
+          content: "【脳内バックログ棚卸しスナップショット】\n・SupabaseのRLS閲覧ポリシー確認\n・CanvasプロトタイプでのCSVエスケープ検証\n・週末の読書リスト整理（認知科学・グラフ理論）"
+        },
+        {
+          created_at: "2026-10-13T16:10:00+09:00",
+          record_date: null,
+          category: "memo",
+          content: "record_dateがNULLのメモレコード検証用サンプル。created_at（2026-10-13 16:10 JST）から日付を補完してタイムライン表示しつつ、詳細ではrecord_dateがNULLであることを区別して表示する。"
+        },
+        {
+          created_at: "2026-10-12T21:00:00+09:00",
+          record_date: "2026-10-12",
+          category: "journal",
+          content: "夜のストレッチ中に思いついたこと：写真（media_logs）と食事（meal_logs）は無理にID結合しなくても、独立した観察カードとして眺める方がノイズがない。"
+        },
+        {
+          created_at: "2026-10-11T09:20:00+09:00",
+          record_date: "2026-10-11",
+          category: "task",
+          content: "エクスポート機能でカンマや改行、ダブルクォートを含む日本語テキストがCSVで崩れないかテストケースを作る。"
+        }
+      ],
+
+      tag_dictionary: [
+        { tag_name: "AIアーキテクチャ", usage_count: 28, last_seen_at: "2026-10-14T18:40:00+09:00" },
+        { tag_name: "セカンドブレイン", usage_count: 24, last_seen_at: "2026-10-14T19:30:00+09:00" },
+        { tag_name: "メタ認知", usage_count: 21, last_seen_at: "2026-10-14T19:30:00+09:00" },
+        { tag_name: "Supabase設計", usage_count: 19, last_seen_at: "2026-10-14T11:20:00+09:00" },
+        { tag_name: "自律神経", usage_count: 16, last_seen_at: "2026-10-14T19:30:00+09:00" },
+        { tag_name: "ナレッジグラフ", usage_count: 14, last_seen_at: "2026-10-13T15:10:00+09:00" },
+        { tag_name: "データモデリング", usage_count: 12, last_seen_at: "2026-10-14T11:20:00+09:00" },
+        { tag_name: "トレーニング理論", usage_count: 11, last_seen_at: "2026-10-12T17:50:00+09:00" },
+        { tag_name: "RLSセキュリティ", usage_count: 9, last_seen_at: "2026-10-13T11:00:00+09:00" },
+        { tag_name: "音声思考ログ", usage_count: 8, last_seen_at: "2026-10-14T18:40:00+09:00" },
+        { tag_name: "プロンプト設計", usage_count: 7, last_seen_at: "2026-10-11T16:40:00+09:00" }
+      ],
+
+      digital_activity_logs: [
+        {
+          start_time: "2026-10-14T11:20:00+09:00",
+          activity_category: "Analyze",
+          platform: "Supabase",
+          action_summary: "テーブル別SELECT対象カラムとRLSポリシーの整合性検証",
+          tags: ["Supabase設計", "データモデリング", "AIアーキテクチャ"]
+        },
+        {
+          start_time: "2026-10-14T14:05:00+09:00",
+          activity_category: "Create",
+          platform: "Google Drive",
+          action_summary: "セカンドブレイン探索室UIのプロトタイプ仕様ドキュメント作成",
+          tags: ["セカンドブレイン", "ナレッジグラフ"]
+        },
+        {
+          start_time: "2026-10-13T10:30:00+09:00",
+          activity_category: "Update",
+          platform: "GAS",
+          action_summary: "DailyArchive.gsのタイムライン出力とキーワード同期処理の整理",
+          tags: ["AIアーキテクチャ", "Supabase設計", "RLSセキュリティ"]
+        },
+        {
+          start_time: "2026-10-12T13:15:00+09:00",
+          activity_category: "Analyze",
+          platform: "Sheets",
+          action_summary: "Health Data Exportシートのstep_countおよびHRV推移の確認",
+          tags: ["自律神経", "データモデリング"]
+        },
+        {
+          start_time: "2026-10-11T16:40:00+09:00",
+          activity_category: "Create",
+          platform: "Google Drive",
+          action_summary: "横断検索用プロンプト構造とJSONエクスポートスキーマの設計",
+          tags: ["プロンプト設計", "AIアーキテクチャ"]
+        }
+      ],
+
+      location_logs: [
+        {
+          recorded_at: "2026-10-14T08:30:00+09:00",
+          place_name: "都内・ワークラウンジ"
+        },
+        {
+          recorded_at: "2026-10-13T17:15:00+09:00",
+          place_name: "市立公園・外周トレイル"
+        },
+        {
+          recorded_at: "2026-10-12T16:30:00+09:00",
+          place_name: null
+        },
+        {
+          recorded_at: "2026-10-11T14:00:00+09:00",
+          place_name: "自宅ワークスペース"
+        }
+      ],
+
+      health_logs: [
+        {
+          record_date: "2026-10-14",
+          sleep_hours: 7.4,
+          steps: 8420,
+          resting_heart_rate: 52,
+          hrv_rmssd: 68
+        },
+        {
+          record_date: "2026-10-13",
+          sleep_hours: 7.8,
+          steps: 11250,
+          resting_heart_rate: 51,
+          hrv_rmssd: 72
+        },
+        {
+          record_date: "2026-10-12",
+          sleep_hours: 8.2,
+          steps: 6890,
+          resting_heart_rate: 54,
+          hrv_rmssd: null
+        },
+        {
+          record_date: "2026-10-11",
+          sleep_hours: 6.5,
+          steps: null,
+          resting_heart_rate: 56,
+          hrv_rmssd: 58
+        }
+      ],
+
+      workout_logs: [
+        {
+          record_date: "2026-10-14",
+          workout_type: "加重懸垂 (Weighted Pull-ups)",
+          summary: "+20kg × 5reps × 4sets / 自重 12reps × 2sets",
+          coach_feedback: "肩甲骨の下制コントロールが安定しており、全4セットで挙上速度の低下が最小限です。睡眠7.4h・HRV 68msの良好な神経回復が反映されています。"
+        },
+        {
+          record_date: "2026-10-12",
+          workout_type: "加重ディップス & リングロー",
+          summary: "加重ディップス +25kg × 6reps × 4sets / リングロー 15reps × 3sets",
+          coach_feedback: "ボトムポジションでの胸椎伸展が維持できています。次回はセット間休息を180秒に保つとさらに出力安定が見込めます。"
+        },
+        {
+          record_date: "2026-10-11",
+          workout_type: "ゾーン2 有酸素バイク & モビリティ",
+          summary: "エアロバイク 35分 (平均心拍128bpm) + 胸椎・股関節モビリティ15分",
+          coach_feedback: "前日の睡眠時間が6.5hとやや短めだったため、高強度を避けてゾーン2有酸素に切り替えた判断が的確です。"
+        }
+      ],
+
+      media_logs: [
+        {
+          shot_at: "2026-10-14T08:50:00+09:00",
+          location_address: "東京都〇〇区〇〇 1丁目 (サンプル住所)",
+          scene_description: "木製デスクの上に開かれたノートPCと手書きのデータベースER図スケッチ、ブラックコーヒーのカップが置かれている朝の作業風景。"
+        },
+        {
+          shot_at: "2026-10-13T17:25:00+09:00",
+          location_address: "東京都〇〇区〇〇公園周辺 (サンプル住所)",
+          scene_description: "夕暮れの公園並木道。オレンジ色の西日が木々の間から差し込み、落ち着いた散策路が写っている。"
+        },
+        {
+          shot_at: "2026-10-12T12:40:00+09:00",
+          location_address: null,
+          scene_description: "ホワイトボードに描かれたナレッジグラフのノード設計図と、タグ共起関係の矢印メモ。"
+        }
+      ],
+
+      meal_logs: [
+        {
+          recorded_at: "2026-10-14T08:15:00+09:00",
+          meal_type: "breakfast",
+          food_items: ["オートミール", "無糖ギリシャヨーグルト", "ブルーベリー", "ブラックコーヒー"],
+          calories_kcal: 460
+        },
+        {
+          recorded_at: "2026-10-13T12:30:00+09:00",
+          meal_type: "lunch",
+          food_items: ["鶏むね肉のグリル", "玄米ご飯", "ブロッコリーとアボカドのサラダ", "味噌汁"],
+          calories_kcal: 680
+        },
+        {
+          recorded_at: "2026-10-12T19:00:00+09:00",
+          meal_type: "dinner",
+          food_items: ["焼き鮭", "納豆", "豆腐とわかめの澄まし汁", "ほうれん草のお浸し"],
+          calories_kcal: 610
+        },
+        {
+          recorded_at: "2026-10-11T16:00:00+09:00",
+          meal_type: "snack",
+          food_items: [],
+          calories_kcal: null
+        }
+      ]
+    });
+
+    /**
+     * =========================================================================
+     * 3. データ取得層（フェーズB対応：DataRepository）
+     * - テーブルごとの取得関数を用意
+     * - テーブルごとに取得カラムを固定（STRICT_TABLE_SCHEMASから生成）
+     * - 除外カラムはクエリ選択対象に含めない＆万一レスポンスに含まれてもサニタイズ破棄
+     * - select('*') は絶対に使用しない
+     * =========================================================================
+     */
+    class DataRepository {
+      constructor() {
+        const hasConfiguredUrl =
+          typeof APP_CONFIG.SUPABASE_URL === "string" &&
+          APP_CONFIG.SUPABASE_URL.startsWith("https://") &&
+          !APP_CONFIG.SUPABASE_URL.includes("YOUR_SUPABASE_PROJECT_URL") &&
+          !APP_CONFIG.SUPABASE_URL.includes("your-project");
+        const hasConfiguredKey =
+          typeof APP_CONFIG.SUPABASE_ANON_KEY === "string" &&
+          APP_CONFIG.SUPABASE_ANON_KEY.trim() !== "" &&
+          !APP_CONFIG.SUPABASE_ANON_KEY.includes("YOUR_SUPABASE_ANON_KEY");
+
+        if (hasConfiguredUrl && hasConfiguredKey && this.validateAnonKeySafety(APP_CONFIG.SUPABASE_ANON_KEY).ok) {
+          this.mode = "SUPABASE_LIVE";
+          this.supabaseUrl = APP_CONFIG.SUPABASE_URL.trim();
+          this.supabaseAnonKey = APP_CONFIG.SUPABASE_ANON_KEY.trim();
+        } else {
+          this.mode = "SAMPLE"; // "SAMPLE" | "SUPABASE_LIVE"
+          this.supabaseUrl = "";
+          this.supabaseAnonKey = "";
+        }
+      }
+
+      /**
+       * 指定テーブルの正規SELECTクエリ文字列を構築する（select('*')は禁止）
+       */
+      buildSelectQuery(tableName) {
+        const schema = STRICT_TABLE_SCHEMAS[tableName];
+        if (!schema || !Array.isArray(schema.selectColumns) || schema.selectColumns.length === 0) {
+          throw new Error(`未定義または不正なテーブルスキーマです: ${tableName}`);
+        }
+        const selectClause = schema.selectColumns.join(",");
+        if (selectClause.includes("*")) {
+          throw new Error("規約違反: select('*') は禁止されています。");
+        }
+        const orderClause = schema.orderBy ? `&order=${schema.orderBy}` : "";
+        return `${tableName}?select=${selectClause}${orderClause}`;
+      }
+
+      /**
+       * レコードから許可されたカラムのみを抽出し、除外カラムが混入しないことを保証する
+       */
+      sanitizeRecordColumns(tableName, rawRow) {
+        const allowed = STRICT_TABLE_SCHEMAS[tableName].selectColumns;
+        const clean = {};
+        allowed.forEach((col) => {
+          clean[col] = Object.prototype.hasOwnProperty.call(rawRow, col) ? rawRow[col] : null;
+        });
+        return clean;
+      }
+
+      /**
+       * JWT ペイロードを検査し、service_role キーが誤って入力された場合は拒否する（セクション9安全条件）
+       */
+      validateAnonKeySafety(keyStr) {
+        if (!keyStr || typeof keyStr !== "string") {
+          return { ok: false, reason: "APIキーが空です。" };
+        }
+        if (keyStr.includes("service_role") || keyStr.startsWith("sb_secret_")) {
+          return { ok: false, reason: "セキュリティ規約違反: service_roleキーまたはsecretキーはブラウザに入力できません。anon（読み取り専用）キーのみ使用可能です。" };
+        }
+        const parts = keyStr.split(".");
+        if (parts.length === 3) {
+          try {
+            const payloadJson = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+            const payload = JSON.parse(payloadJson);
+            if (payload && payload.role && payload.role !== "anon") {
+              return { ok: false, reason: `セキュリティ規約違反: ロール "${payload.role}" のキーは使用できません。"anon" ロールのみ許可されています。` };
+            }
+          } catch (_) {
+            // 非JWT形式のトークンの場合はそのまま通過
+          }
+        }
+        return { ok: true };
+      }
+
+      /**
+       * 単一テーブルのGET取得（フェーズB：テーブル別取得関数の基盤）
+       */
+      async fetchTable(tableName) {
+        const queryEndpoint = this.buildSelectQuery(tableName);
+
+        if (this.mode === "SAMPLE") {
+          const rows = SAMPLE_DATABASE[tableName] || [];
+          return rows.map((r) => this.sanitizeRecordColumns(tableName, JSON.parse(JSON.stringify(r))));
+        }
+
+        // SUPABASE_LIVE モード（GETのみ・読み取り専用）
+        const url = `${this.supabaseUrl.replace(/\/$/, "")}/rest/v1/${queryEndpoint}`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "apikey": this.supabaseAnonKey,
+            "Authorization": `Bearer ${this.supabaseAnonKey}`,
+            "Accept": "application/json"
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`[${tableName}] SELECT権限エラーまたは通信失敗 (HTTP ${response.status})`);
+        }
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+          throw new Error(`[${tableName}] 応答が配列ではありません`);
+        }
+        return data.map((r) => this.sanitizeRecordColumns(tableName, r));
+      }
+
+      // --- テーブルごとの専用取得関数（フェーズB要件） ---
+      async fetchDailyLogs() { return this.fetchTable("daily_logs"); }
+      async fetchVoiceInsights() { return this.fetchTable("voice_insights"); }
+      async fetchQuickMemos() { return this.fetchTable("quick_memos"); }
+      async fetchTagDictionary() { return this.fetchTable("tag_dictionary"); }
+      async fetchDigitalActivityLogs() { return this.fetchTable("digital_activity_logs"); }
+      async fetchLocationLogs() { return this.fetchTable("location_logs"); }
+      async fetchHealthLogs() { return this.fetchTable("health_logs"); }
+      async fetchWorkoutLogs() { return this.fetchTable("workout_logs"); }
+      async fetchMediaLogs() { return this.fetchTable("media_logs"); }
+      async fetchMealLogs() { return this.fetchTable("meal_logs"); }
+
+      async fetchAllTables() {
+        const results = await Promise.allSettled([
+          this.fetchDailyLogs(),
+          this.fetchVoiceInsights(),
+          this.fetchQuickMemos(),
+          this.fetchTagDictionary(),
+          this.fetchDigitalActivityLogs(),
+          this.fetchLocationLogs(),
+          this.fetchHealthLogs(),
+          this.fetchWorkoutLogs(),
+          this.fetchMediaLogs(),
+          this.fetchMealLogs()
+        ]);
+
+        const allFailed = results.every((r) => r.status === "rejected");
+        if (allFailed && this.mode === "SUPABASE_LIVE") {
+          const firstErr = results[0].reason;
+          throw new Error(`全テーブルの取得に失敗しました。認証情報またはURLを確認してください: ${firstErr && firstErr.message ? firstErr.message : firstErr}`);
+        }
+
+        const getTableData = (res, tableName) => {
+          if (res.status === "fulfilled") {
+            return res.value || [];
+          }
+          console.warn(`[fetchAllTables] テーブル "${tableName}" の取得をスキップしました (未作成または権限エラー等):`, res.reason);
+          return [];
+        };
+
+        return {
+          daily_logs: getTableData(results[0], "daily_logs"),
+          voice_insights: getTableData(results[1], "voice_insights"),
+          quick_memos: getTableData(results[2], "quick_memos"),
+          tag_dictionary: getTableData(results[3], "tag_dictionary"),
+          digital_activity_logs: getTableData(results[4], "digital_activity_logs"),
+          location_logs: getTableData(results[5], "location_logs"),
+          health_logs: getTableData(results[6], "health_logs"),
+          workout_logs: getTableData(results[7], "workout_logs"),
+          media_logs: getTableData(results[8], "media_logs"),
+          meal_logs: getTableData(results[9], "meal_logs")
+        };
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 4. 日時・NULL・JSON 安全フォーマッタ（セクション3 ルール5〜9準拠）
+     * =========================================================================
+     */
+    function formatTimestamptzToJST(isoString) {
+      if (isoString === null || isoString === undefined || isoString === "") return null;
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return String(isoString);
+      const formatter = new Intl.DateTimeFormat("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      });
+      const parts = formatter.formatToParts(d);
+      const map = {};
+      parts.forEach((p) => { map[p.type] = p.value; });
+      return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute} JST`;
+    }
+
+    function extractJSTDateOnly(isoString) {
+      if (!isoString) return null;
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return null;
+      const formatter = new Intl.DateTimeFormat("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      });
+      const parts = formatter.formatToParts(d);
+      const map = {};
+      parts.forEach((p) => { map[p.type] = p.value; });
+      return `${map.year}-${map.month}-${map.day}`;
+    }
+
+    // 外部リンクに target="_blank" rel="noopener noreferrer" を付与
+    if (typeof DOMPurify !== "undefined") {
+      DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+        if (node.tagName === "A" && node.hasAttribute("href")) {
+          node.setAttribute("target", "_blank");
+          node.setAttribute("rel", "noopener noreferrer");
+        }
+      });
+    }
+
+    /**
+     * 長文テキスト用 Markdown レンダラ（marked → DOMPurify でサニタイズ済みHTMLを返す）
+     */
+    function renderMarkdown(text, nullLabel = "NULL (記録なし)") {
+      if (text === null || text === undefined || String(text).trim() === "") {
+        return `<span class="null-badge">${escapeHtml(nullLabel)}</span>`;
+      }
+      const src = Array.isArray(text) ? text.map((t) => "- " + t).join("\n") : String(text);
+      if (typeof marked === "undefined" || typeof DOMPurify === "undefined") {
+        return escapeHtml(src).replace(/\n/g, "<br>");
+      }
+      return DOMPurify.sanitize(marked.parse(src, { breaks: true }));
+    }
+
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return "";
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function renderNullOrText(val, nullLabel = "NULL (記録なし)") {
+      if (val === null || val === undefined) {
+        return `<span class="null-badge">${escapeHtml(nullLabel)}</span>`;
+      }
+      if (Array.isArray(val)) {
+        if (val.length === 0) return `<span class="null-badge">空配列 []</span>`;
+        return val.map((item) => `<span class="inline-block bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-xs mr-1 mb-1">${escapeHtml(typeof item === "object" ? JSON.stringify(item) : String(item))}</span>`).join("");
+      }
+      if (typeof val === "object") {
+        return `<pre class="text-xs font-mono bg-slate-950 p-2 rounded border border-slate-800 overflow-x-auto">${escapeHtml(JSON.stringify(val, null, 2))}</pre>`;
+      }
+      return escapeHtml(String(val));
+    }
+
+    /**
+     * =========================================================================
+     * 5. 共通データモデル変換層（セクション7）
+     * - UI表示用の概念 (`source_type`, `record_date`, `display_time`, `is_datetime`,
+     *   `title`, `summary`, `tags`, `category`, `source_fields`) に変換する。
+     * - 実データ自体は `source_fields` にセクション4のカラムのみを厳密に格納する。
+     * =========================================================================
+     */
+    function buildUnifiedRecords(rawTables) {
+      const unified = [];
+      let uiIndex = 1;
+
+      // A. daily_logs
+      (rawTables.daily_logs || []).forEach((row) => {
+        unified.push({
+          _ui_key: `daily_logs_${uiIndex++}`,
+          source_type: "daily_logs",
+          record_date: row.record_date || null,
+          display_time: row.record_date ? `${row.record_date} (JST日付)` : null,
+          sort_timestamp: row.record_date ? new Date(`${row.record_date}T23:50:00+09:00`).getTime() : 0,
+          is_datetime: false,
+          title: `日次サマリー (${row.record_date || "日付NULL"})`,
+          summary: row.daily_summary || "",
+          tags: Array.isArray(row.semantic_keywords) ? row.semantic_keywords : [],
+          category: "日次サマリー・メタ認知",
+          source_fields: row
+        });
+      });
+
+      // B. voice_insights
+      (rawTables.voice_insights || []).forEach((row) => {
+        const jstDate = extractJSTDateOnly(row.created_at);
+        const jstFull = formatTimestamptzToJST(row.created_at);
+        unified.push({
+          _ui_key: `voice_insights_${uiIndex++}`,
+          source_type: "voice_insights",
+          record_date: jstDate,
+          display_time: jstFull,
+          sort_timestamp: row.created_at ? new Date(row.created_at).getTime() : 0,
+          is_datetime: true,
+          title: row.title || "（無題の音声インサイト）",
+          summary: row.insight || "",
+          tags: Array.isArray(row.tags) ? row.tags : [],
+          category: row.category || "未分類",
+          source_fields: row
+        });
+      });
+
+      // C. quick_memos
+      (rawTables.quick_memos || []).forEach((row) => {
+        // ルールC: record_dateがある場合は対象日を優先的に表示、NULLの場合はcreated_atを使用できる
+        const fallbackDate = extractJSTDateOnly(row.created_at);
+        const effectiveDate = row.record_date ? row.record_date : fallbackDate;
+        const jstCreated = formatTimestamptzToJST(row.created_at);
+        const displayTimeStr = row.record_date
+          ? `対象日: ${row.record_date} (作成: ${jstCreated || "NULL"})`
+          : `対象日NULL ➔ 作成日時: ${jstCreated || "NULL"}`;
+
+        unified.push({
+          _ui_key: `quick_memos_${uiIndex++}`,
+          source_type: "quick_memos",
+          record_date: effectiveDate,
+          display_time: displayTimeStr,
+          sort_timestamp: row.created_at ? new Date(row.created_at).getTime() : (row.record_date ? new Date(`${row.record_date}T12:00:00+09:00`).getTime() : 0),
+          is_datetime: true,
+          title: `クイックメモ [${row.category || "未分類"}]`,
+          summary: row.content || "",
+          tags: [],
+          category: row.category || "memo",
+          source_fields: row
+        });
+      });
+
+      // D. tag_dictionary
+      (rawTables.tag_dictionary || []).forEach((row) => {
+        const jstDate = extractJSTDateOnly(row.last_seen_at);
+        const jstFull = formatTimestamptzToJST(row.last_seen_at);
+        unified.push({
+          _ui_key: `tag_dictionary_${uiIndex++}`,
+          source_type: "tag_dictionary",
+          record_date: jstDate,
+          display_time: jstFull ? `最終出現: ${jstFull}` : null,
+          sort_timestamp: row.last_seen_at ? new Date(row.last_seen_at).getTime() : 0,
+          is_datetime: true,
+          title: `タグ辞書: #${row.tag_name}`,
+          summary: `累計出現回数 (usage_count): ${row.usage_count !== null && row.usage_count !== undefined ? row.usage_count + "回" : "NULL"} / 最終出現: ${jstFull || "NULL"}`,
+          tags: row.tag_name ? [row.tag_name] : [],
+          category: "タグ辞書マスタ",
+          source_fields: row
+        });
+      });
+
+      // E. digital_activity_logs
+      (rawTables.digital_activity_logs || []).forEach((row) => {
+        const jstDate = extractJSTDateOnly(row.start_time);
+        const jstFull = formatTimestamptzToJST(row.start_time);
+        unified.push({
+          _ui_key: `digital_activity_logs_${uiIndex++}`,
+          source_type: "digital_activity_logs",
+          record_date: jstDate,
+          display_time: jstFull,
+          sort_timestamp: row.start_time ? new Date(row.start_time).getTime() : 0,
+          is_datetime: true,
+          title: `${row.platform || "Platform NULL"} — ${row.activity_category || "Category NULL"}`,
+          summary: row.action_summary || "",
+          tags: Array.isArray(row.tags) ? row.tags : [],
+          category: row.activity_category || "デジタル活動",
+          source_fields: row
+        });
+      });
+
+      // F. location_logs
+      (rawTables.location_logs || []).forEach((row) => {
+        const jstDate = extractJSTDateOnly(row.recorded_at);
+        const jstFull = formatTimestamptzToJST(row.recorded_at);
+        // ルールF: place_nameがNULLの場合は架空の場所名で補完せず「場所情報なし」と表示する
+        const placeText = row.place_name !== null && row.place_name !== undefined && row.place_name !== ""
+          ? row.place_name
+          : "場所情報なし";
+        unified.push({
+          _ui_key: `location_logs_${uiIndex++}`,
+          source_type: "location_logs",
+          record_date: jstDate,
+          display_time: jstFull,
+          sort_timestamp: row.recorded_at ? new Date(row.recorded_at).getTime() : 0,
+          is_datetime: true,
+          title: `滞在・移動記録: ${placeText}`,
+          summary: `記録日時: ${jstFull || "NULL"} / 場所: ${placeText}`,
+          tags: [],
+          category: "移動・滞在場所",
+          source_fields: row
+        });
+      });
+
+      // G. health_logs
+      (rawTables.health_logs || []).forEach((row) => {
+        // ルールG: stepsを使用 (旧step_countにもフォールバック)、NULLを0として扱わない
+        const stepVal = row.steps !== undefined ? row.steps : row.step_count;
+        const sleepStr = row.sleep_hours !== null && row.sleep_hours !== undefined ? `${row.sleep_hours}時間` : "NULL";
+        const stepStr = stepVal !== null && stepVal !== undefined ? `${Number(stepVal).toLocaleString()}歩` : "NULL";
+        const rhrStr = row.resting_heart_rate !== null && row.resting_heart_rate !== undefined ? `${row.resting_heart_rate} bpm` : "NULL";
+        const hrvStr = row.hrv_rmssd !== null && row.hrv_rmssd !== undefined ? `${row.hrv_rmssd} ms` : "NULL";
+
+        unified.push({
+          _ui_key: `health_logs_${uiIndex++}`,
+          source_type: "health_logs",
+          record_date: row.record_date || null,
+          display_time: row.record_date ? `${row.record_date} (JST日付)` : null,
+          sort_timestamp: row.record_date ? new Date(`${row.record_date}T07:00:00+09:00`).getTime() : 0,
+          is_datetime: false,
+          title: `身体データ記録 (${row.record_date || "日付NULL"})`,
+          summary: `睡眠: ${sleepStr} / 歩数(steps): ${stepStr} / 安静時心拍: ${rhrStr} / HRV(hrv_rmssd): ${hrvStr}`,
+          tags: [],
+          category: "身体データ",
+          source_fields: row
+        });
+      });
+
+      // H. workout_logs
+      (rawTables.workout_logs || []).forEach((row) => {
+        unified.push({
+          _ui_key: `workout_logs_${uiIndex++}`,
+          source_type: "workout_logs",
+          record_date: row.record_date || null,
+          display_time: row.record_date ? `${row.record_date} (JST日付)` : null,
+          sort_timestamp: row.record_date ? new Date(`${row.record_date}T16:00:00+09:00`).getTime() : 0,
+          is_datetime: false,
+          title: `トレーニング: ${row.workout_type || "種目NULL"}`,
+          summary: row.summary || "",
+          tags: [],
+          category: row.workout_type || "トレーニング",
+          source_fields: row
+        });
+      });
+
+      // I. media_logs
+      (rawTables.media_logs || []).forEach((row) => {
+        const jstDate = extractJSTDateOnly(row.shot_at);
+        const jstFull = formatTimestamptzToJST(row.shot_at);
+        unified.push({
+          _ui_key: `media_logs_${uiIndex++}`,
+          source_type: "media_logs",
+          record_date: jstDate,
+          display_time: jstFull,
+          sort_timestamp: row.shot_at ? new Date(row.shot_at).getTime() : 0,
+          is_datetime: true,
+          title: `写真・動画メタデータ (${row.location_address || "住所記録なし/NULL"})`,
+          summary: row.scene_description || "",
+          tags: [],
+          category: "写真・動画メタデータ",
+          source_fields: row
+        });
+      });
+
+      // J. meal_logs (recorded_at, meal_type, food_items, calories_kcal)
+      (rawTables.meal_logs || []).forEach((row) => {
+        const items = Array.isArray(row.food_items) ? row.food_items : [];
+        const hasItems = items.length > 0;
+        const calText = row.calories_kcal !== null && row.calories_kcal !== undefined
+          ? `推定 ${row.calories_kcal} kcal（AI推定値・実測値と断定しません）`
+          : "カロリー: NULL";
+        const bodyText = hasItems
+          ? `品目: ${items.join("、")} / ${calText}`
+          : "食事記録なし";
+
+        const jstDate = row.recorded_at ? extractJSTDateOnly(row.recorded_at) : null;
+        const jstFull = row.recorded_at ? formatTimestamptzToJST(row.recorded_at) : null;
+
+        unified.push({
+          _ui_key: `meal_logs_${uiIndex++}`,
+          source_type: "meal_logs",
+          record_date: jstDate,
+          display_time: jstFull || (row.recorded_at === null ? "日時未記録 (NULL)" : "日時カラム取得対象外（独立データ源）"),
+          sort_timestamp: row.recorded_at ? new Date(row.recorded_at).getTime() : -1,
+          is_datetime: !!row.recorded_at,
+          title: `食事ログ [${row.meal_type || "種別NULL"}]`,
+          summary: bodyText,
+          tags: [],
+          category: row.meal_type || "食事",
+          source_fields: row
+        });
+      });
+
+      return unified;
+    }
+
+    /**
+     * =========================================================================
+     * 6. アプリケーション状態管理
+     * =========================================================================
+     */
+    const repo = new DataRepository();
+    const state = {
+      currentView: "graph",
+      rawTables: {},
+      unifiedRecords: [],
+      selectedTag: null,
+      graphZoom: 1,
+      graphPanX: 0,
+      graphPanY: 0,
+      graphMode: "focus", // "focus" (案A) または "overview" (案B)
+      graphNodeLimit: 25, // 案Bでの表示件数上限 (15, 25, 40, "ALL")
+      graphHistory: [],   // 探索履歴スタック [tag1, tag2, tag3]
+      graphHistoryIndex: -1 // 現在位置
+    };
+
+    /**
+     * ナレッジグラフ設定定数
+     * - GRAPH_COOC_DEFAULT_MIN_WEIGHT: 通常表示する共起エッジの最小重み（デフォルト2。1のエッジによる毛玉化を抑制）
+     */
+    const GRAPH_COOC_DEFAULT_MIN_WEIGHT = 2;
+
+    /**
+     * =========================================================================
+     * 7. 画面1：ナレッジグラフの描画とインタラクション
+     * =========================================================================
+     */
+    function getFilteredGraphData() {
+      const tagQuery = document.getElementById("graphTagSearch").value.trim().toLowerCase();
+      const categoryFilter = document.getElementById("graphCategoryFilter").value;
+      const dateFrom = document.getElementById("graphDateFrom").value;
+      const dateTo = document.getElementById("graphDateTo").value;
+      const sortOrder = document.getElementById("graphSortOrder").value;
+
+      // タグを持つ対象レコード（daily_logs, voice_insights, digital_activity_logs）をフィルタ
+      const taggedRecords = state.unifiedRecords.filter((rec) => {
+        if (!["daily_logs", "voice_insights", "digital_activity_logs"].includes(rec.source_type)) return false;
+        if (categoryFilter !== "ALL" && rec.category !== categoryFilter) return false;
+        if (dateFrom && (!rec.record_date || rec.record_date < dateFrom)) return false;
+        if (dateTo && (!rec.record_date || rec.record_date > dateTo)) return false;
+        return true;
+      });
+
+      // tag_dictionary をベースにしつつ、フィルタ条件に合うタグ一覧を構築
+      let tags = (state.rawTables.tag_dictionary || []).map((t) => ({
+        tag_name: t.tag_name,
+        usage_count: t.usage_count,
+        last_seen_at: t.last_seen_at
+      }));
+
+      if (tagQuery) {
+        tags = tags.filter((t) => (t.tag_name || "").toLowerCase().includes(tagQuery));
+      }
+
+      // カテゴリや日付フィルターが指定されている場合、該当レコードに出現するタグまたは全辞書タグにマーク
+      const activeTagSet = new Set();
+      taggedRecords.forEach((r) => {
+        (r.tags || []).forEach((tg) => activeTagSet.add(tg));
+      });
+
+      if (categoryFilter !== "ALL" || dateFrom || dateTo) {
+        tags = tags.filter((t) => activeTagSet.has(t.tag_name));
+      }
+
+      // ソート
+      tags.sort((a, b) => {
+        if (sortOrder === "last_seen_desc") {
+          const tA = a.last_seen_at ? new Date(a.last_seen_at).getTime() : 0;
+          const tB = b.last_seen_at ? new Date(b.last_seen_at).getTime() : 0;
+          return tB - tA;
+        }
+        return (b.usage_count || 0) - (a.usage_count || 0);
+      });
+
+      // 実タグ一致に基づく共起エッジ計算（推測エッジは一切作らない）
+      const validTagNames = new Set(tags.map((t) => t.tag_name));
+      const edgeMap = new Map();
+
+      taggedRecords.forEach((rec) => {
+        const recTags = (rec.tags || []).filter((t) => validTagNames.has(t));
+        for (let i = 0; i < recTags.length; i++) {
+          for (let j = i + 1; j < recTags.length; j++) {
+            const [t1, t2] = [recTags[i], recTags[j]].sort();
+            const key = `${t1}|||${t2}`;
+            if (!edgeMap.has(key)) {
+              edgeMap.set(key, { source: t1, target: t2, weight: 0, records: [] });
+            }
+            const edge = edgeMap.get(key);
+            edge.weight += 1;
+            edge.records.push(rec);
+          }
+        }
+      });
+
+      return {
+        tags,
+        edges: Array.from(edgeMap.values()),
+        taggedRecords
+      };
+    }
+
+    /**
+     * ナレッジグラフの探索ナビゲーション & 履歴スタック管理
+     */
+    function navigateToTag(tag, pushHistory = true) {
+      if (!tag) return;
+      if (pushHistory) {
+        if (state.graphHistoryIndex >= 0 && state.graphHistory[state.graphHistoryIndex] === tag) {
+          // すでに現在位置と同じ
+        } else {
+          state.graphHistory = state.graphHistory.slice(0, state.graphHistoryIndex + 1);
+          state.graphHistory.push(tag);
+          state.graphHistoryIndex = state.graphHistory.length - 1;
+          if (state.graphHistory.length > 25) {
+            state.graphHistory.shift();
+            state.graphHistoryIndex--;
+          }
+        }
+      }
+      state.selectedTag = tag;
+      renderKnowledgeGraphView();
+    }
+
+    function historyBack() {
+      if (state.graphHistoryIndex > 0) {
+        state.graphHistoryIndex--;
+        navigateToTag(state.graphHistory[state.graphHistoryIndex], false);
+      }
+    }
+
+    function historyForward() {
+      if (state.graphHistoryIndex < state.graphHistory.length - 1) {
+        state.graphHistoryIndex++;
+        navigateToTag(state.graphHistory[state.graphHistoryIndex], false);
+      }
+    }
+
+    function updateGraphBreadcrumbs() {
+      const trailEl = document.getElementById("graphBreadcrumbTrail");
+      const backBtn = document.getElementById("graphHistoryBackBtn");
+      const fwdBtn = document.getElementById("graphHistoryForwardBtn");
+
+      if (backBtn) backBtn.disabled = state.graphHistoryIndex <= 0;
+      if (fwdBtn) fwdBtn.disabled = state.graphHistoryIndex >= state.graphHistory.length - 1;
+
+      if (!trailEl) return;
+      if (state.graphHistory.length === 0) {
+        trailEl.innerHTML = `<span class="text-[11px] text-slate-500 italic">タグをクリックして探索を開始</span>`;
+        return;
+      }
+
+      trailEl.innerHTML = state.graphHistory.map((tag, idx) => {
+        const isCurrent = idx === state.graphHistoryIndex;
+        return `
+          <button type="button" data-history-idx="${idx}" class="breadcrumb-tag-btn px-2 py-0.5 rounded text-[11px] font-mono transition flex items-center gap-1 ${
+            isCurrent
+              ? "bg-sky-500/20 text-sky-300 border border-sky-500/60 font-bold shadow-xs"
+              : "bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800"
+          }">
+            <span>#${escapeHtml(tag)}</span>
+            ${isCurrent ? '<span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>' : ''}
+          </button>
+          ${idx < state.graphHistory.length - 1 ? '<span class="text-slate-600 text-[10px]">➔</span>' : ''}
+        `;
+      }).join("");
+
+      trailEl.querySelectorAll(".breadcrumb-tag-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.getAttribute("data-history-idx"), 10);
+          if (!isNaN(idx) && idx >= 0 && idx < state.graphHistory.length) {
+            state.graphHistoryIndex = idx;
+            navigateToTag(state.graphHistory[idx], false);
+          }
+        });
+      });
+    }
+
+    function renderKnowledgeGraphView() {
+      const { tags, edges, taggedRecords } = getFilteredGraphData();
+
+      // 選択中タグが未設定またはフィルタ外になった場合は先頭タグを選択
+      if (!state.selectedTag || !tags.some((t) => t.tag_name === state.selectedTag)) {
+        state.selectedTag = tags.length > 0 ? tags[0].tag_name : null;
+      }
+
+      // 初期履歴の登録
+      if (state.selectedTag && state.graphHistory.length === 0) {
+        state.graphHistory = [state.selectedTag];
+        state.graphHistoryIndex = 0;
+      }
+
+      // パンくず・ナビボタン更新
+      updateGraphBreadcrumbs();
+
+      // モード切り替えボタン状態更新
+      const focusBtn = document.getElementById("graphModeFocusBtn");
+      const overviewBtn = document.getElementById("graphModeOverviewBtn");
+      const limitControl = document.getElementById("graphLimitControl");
+      const legendContainer = document.getElementById("graphLegendContainer");
+
+      if (state.graphMode === "focus") {
+        if (focusBtn) focusBtn.className = "px-2.5 py-1 rounded text-[11px] font-semibold transition bg-sky-600 text-white shadow-sm flex items-center gap-1";
+        if (overviewBtn) overviewBtn.className = "px-2.5 py-1 rounded text-[11px] font-medium transition text-slate-400 hover:text-white flex items-center gap-1";
+        if (limitControl) limitControl.classList.add("hidden");
+        if (legendContainer) {
+          legendContainer.innerHTML = `
+            <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-sky-400 inline-block"></span>選択タグ（中心）</span>
+            <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-teal-400 inline-block"></span>共起タグ（クリックで移動）</span>
+            <span class="inline-flex items-center gap-1"><span class="w-4 h-0.5 bg-sky-400 inline-block"></span>共起エッジ（数字＝同一レコード共起回数）</span>
+          `;
+        }
+      } else {
+        if (focusBtn) focusBtn.className = "px-2.5 py-1 rounded text-[11px] font-medium transition text-slate-400 hover:text-white flex items-center gap-1";
+        if (overviewBtn) overviewBtn.className = "px-2.5 py-1 rounded text-[11px] font-semibold transition bg-indigo-600 text-white shadow-sm flex items-center gap-1";
+        if (limitControl) limitControl.classList.remove("hidden");
+        if (legendContainer) {
+          legendContainer.innerHTML = `
+            <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-sky-400 inline-block"></span>選択中タグ</span>
+            <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"></span>タグノード（大きさ＝使用回数）</span>
+            <span class="inline-flex items-center gap-1"><span class="w-4 h-0.5 bg-sky-400/70 inline-block"></span>共起（通常: 2回以上 / 選択時: 1回以上）</span>
+          `;
+        }
+      }
+
+      // 1. 左ペイン：tag_dictionary 一覧
+      document.getElementById("graphTagListCount").textContent = `${tags.length}件`;
+      const listEl = document.getElementById("tagDictionaryList");
+
+      if (tags.length === 0) {
+        listEl.innerHTML = `<div class="text-xs text-slate-500 p-4 text-center">条件に一致するタグがありません</div>`;
+      } else {
+        listEl.innerHTML = tags.map((t) => {
+          const isSelected = t.tag_name === state.selectedTag;
+          const lastSeenStr = formatTimestamptzToJST(t.last_seen_at) || "NULL";
+          return `
+            <button type="button" data-tag="${escapeHtml(t.tag_name)}"
+              class="tag-list-btn w-full text-left p-2.5 rounded-lg border transition flex items-center justify-between gap-2 ${
+                isSelected
+                  ? "bg-sky-950/80 border-sky-500 text-white shadow"
+                  : "bg-slate-950/60 border-slate-800 hover:border-slate-700 text-slate-300"
+              }">
+              <div class="min-w-0">
+                <div class="text-xs font-semibold truncate">#${escapeHtml(t.tag_name)}</div>
+                <div class="text-[10px] text-slate-400 font-mono truncate">最終: ${escapeHtml(lastSeenStr)}</div>
+              </div>
+              <span class="shrink-0 text-xs font-mono px-2 py-0.5 rounded ${
+                isSelected ? "bg-sky-500 text-slate-950 font-bold" : "bg-slate-800 text-sky-300"
+              }">
+                ${t.usage_count !== null && t.usage_count !== undefined ? t.usage_count : "NULL"}回
+              </span>
+            </button>
+          `;
+        }).join("");
+
+        listEl.querySelectorAll(".tag-list-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            navigateToTag(btn.getAttribute("data-tag"), true);
+          });
+        });
+      }
+
+      // 2. 中央ペイン：SVGナレッジグラフ描画
+      const nodesGroup = document.getElementById("graphNodesGroup");
+      const edgesGroup = document.getElementById("graphEdgesGroup");
+      nodesGroup.innerHTML = "";
+      edgesGroup.innerHTML = "";
+
+      const centerX = 350;
+      const centerY = 260;
+      const nodePositions = new Map();
+
+      const tooltipEl = document.getElementById("graphTooltip");
+      const showTooltip = (x, y, html) => {
+        if (!tooltipEl) return;
+        tooltipEl.innerHTML = html;
+        tooltipEl.style.left = `${Math.min(x + 12, 520)}px`;
+        tooltipEl.style.top = `${Math.min(y + 12, 420)}px`;
+        tooltipEl.classList.remove("hidden");
+      };
+      const hideTooltip = () => {
+        if (tooltipEl) tooltipEl.classList.add("hidden");
+      };
+
+      if (tags.length > 0 && state.selectedTag) {
+        const selectedTagObj = tags.find((t) => t.tag_name === state.selectedTag) || tags[0];
+
+        if (state.graphMode === "focus") {
+          // ===================================================================
+          // 案A: フォーカス（エゴ・ネットワーク）モード
+          // ===================================================================
+          nodePositions.set(selectedTagObj.tag_name, {
+            x: centerX,
+            y: centerY,
+            r: 30,
+            tag: selectedTagObj,
+            isCenter: true
+          });
+
+          // 選択ノードと共起するエッジを抽出
+          const relatedEdges = edges.filter(
+            (e) => e.source === selectedTagObj.tag_name || e.target === selectedTagObj.tag_name
+          );
+
+          // 共起タグとウェイトのマップ化
+          const neighborMap = new Map();
+          relatedEdges.forEach((e) => {
+            const neighborName = e.source === selectedTagObj.tag_name ? e.target : e.source;
+            const tagObj = tags.find((t) => t.tag_name === neighborName);
+            if (tagObj) {
+              neighborMap.set(neighborName, { tag: tagObj, weight: e.weight });
+            }
+          });
+
+          // 共起重み降順（同数なら出現回数降順）でソート
+          const sortedNeighbors = Array.from(neighborMap.values()).sort(
+            (a, b) => (b.weight - a.weight) || ((b.tag.usage_count || 0) - (a.tag.usage_count || 0))
+          );
+
+          // 重なり防止のため最大16件に制限
+          const MAX_FOCUS_NEIGHBORS = 16;
+          const displayNeighbors = sortedNeighbors.slice(0, MAX_FOCUS_NEIGHBORS);
+          const nNeighbors = displayNeighbors.length;
+
+          if (nNeighbors > 0) {
+            const radiusX = nNeighbors <= 4 ? 140 : nNeighbors <= 8 ? 185 : 225;
+            const radiusY = nNeighbors <= 4 ? 115 : nNeighbors <= 8 ? 150 : 180;
+
+            displayNeighbors.forEach((item, idx) => {
+              const angle = (2 * Math.PI * idx) / nNeighbors - Math.PI / 2;
+              const x = Math.round(centerX + radiusX * Math.cos(angle));
+              const y = Math.round(centerY + radiusY * Math.sin(angle));
+              const r = Math.round(18 + Math.min(item.weight, 5) * 2);
+              nodePositions.set(item.tag.tag_name, {
+                x,
+                y,
+                r,
+                tag: item.tag,
+                weight: item.weight,
+                isCenter: false,
+                isNeighbor: true
+              });
+            });
+          }
+
+          // エッジ描画（中央 ⇔ 周辺）
+          displayNeighbors.forEach((item) => {
+            const p2 = nodePositions.get(item.tag.tag_name);
+            if (!p2) return;
+
+            // 中央からの接続線
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", String(centerX));
+            line.setAttribute("y1", String(centerY));
+            line.setAttribute("x2", String(p2.x));
+            line.setAttribute("y2", String(p2.y));
+            line.setAttribute("stroke", "#38bdf8");
+            line.setAttribute("stroke-opacity", "0.85");
+            line.setAttribute("stroke-width", String(Math.min(2 + item.weight * 1.5, 7)));
+            edgesGroup.appendChild(line);
+
+            // 共起回数バッジ（線の中央）
+            const midX = Math.round((centerX + p2.x) / 2);
+            const midY = Math.round((centerY + p2.y) / 2);
+
+            const badgeGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            const badgeBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            badgeBg.setAttribute("x", String(midX - 10));
+            badgeBg.setAttribute("y", String(midY - 8));
+            badgeBg.setAttribute("width", "20");
+            badgeBg.setAttribute("height", "16");
+            badgeBg.setAttribute("rx", "4");
+            badgeBg.setAttribute("fill", "#0b1120");
+            badgeBg.setAttribute("stroke", "#0284c7");
+            badgeBg.setAttribute("stroke-width", "1");
+            badgeGroup.appendChild(badgeBg);
+
+            const badgeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            badgeText.setAttribute("x", String(midX));
+            badgeText.setAttribute("y", String(midY + 4));
+            badgeText.setAttribute("text-anchor", "middle");
+            badgeText.setAttribute("fill", "#38bdf8");
+            badgeText.setAttribute("font-size", "10");
+            badgeText.setAttribute("font-weight", "bold");
+            badgeText.textContent = `${item.weight}`;
+            badgeGroup.appendChild(badgeText);
+            edgesGroup.appendChild(badgeGroup);
+          });
+
+          // 周辺ノード同士の共起エッジ（破線）
+          edges.forEach((edge) => {
+            if (edge.source === selectedTagObj.tag_name || edge.target === selectedTagObj.tag_name) return;
+            const p1 = nodePositions.get(edge.source);
+            const p2 = nodePositions.get(edge.target);
+            if (!p1 || !p2) return;
+
+            const crossLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            crossLine.setAttribute("x1", String(p1.x));
+            crossLine.setAttribute("y1", String(p1.y));
+            crossLine.setAttribute("x2", String(p2.x));
+            crossLine.setAttribute("y2", String(p2.y));
+            crossLine.setAttribute("stroke", "#64748b");
+            crossLine.setAttribute("stroke-opacity", "0.45");
+            crossLine.setAttribute("stroke-width", "1.2");
+            crossLine.setAttribute("stroke-dasharray", "3 3");
+            edgesGroup.appendChild(crossLine);
+          });
+
+          // 共起タグが0件の場合のガイド表示
+          if (nNeighbors === 0) {
+            const emptyGuide = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            emptyGuide.setAttribute("x", String(centerX));
+            emptyGuide.setAttribute("y", String(centerY + 75));
+            emptyGuide.setAttribute("text-anchor", "middle");
+            emptyGuide.setAttribute("fill", "#64748b");
+            emptyGuide.setAttribute("font-size", "12");
+            emptyGuide.textContent = "同一レコードで共起しているタグはありません（独立タグ）";
+            nodesGroup.appendChild(emptyGuide);
+          }
+
+        } else {
+          // ===================================================================
+          // 案B: 全体俯瞰（多重同心円 ＋ スマートラベリング）モード
+          // ===================================================================
+          let limit = parseInt(state.graphNodeLimit, 10);
+          if (isNaN(limit) || state.graphNodeLimit === "ALL") {
+            limit = tags.length;
+          }
+          const displayTags = tags.slice(0, limit);
+
+          const maxUsage = Math.max(...displayTags.map((t) => t.usage_count || 1), 1);
+          const minUsage = Math.min(...displayTags.map((t) => t.usage_count || 1), 1);
+
+          // 多重同心円レイアウト（内側: 上位4件、中間: 5〜14件、外側: 15件以降）
+          displayTags.forEach((t, idx) => {
+            let radiusX, radiusY, angle;
+
+            if (idx < 4) {
+              const countInRing = Math.min(displayTags.length, 4);
+              angle = (2 * Math.PI * idx) / countInRing - Math.PI / 2;
+              radiusX = 100;
+              radiusY = 80;
+            } else if (idx < 14) {
+              const countInRing = Math.min(displayTags.length - 4, 10);
+              const ringIdx = idx - 4;
+              angle = (2 * Math.PI * ringIdx) / countInRing - Math.PI / 2 + 0.2;
+              radiusX = 185;
+              radiusY = 145;
+            } else {
+              const countInRing = Math.max(displayTags.length - 14, 1);
+              const ringIdx = idx - 14;
+              angle = (2 * Math.PI * ringIdx) / countInRing - Math.PI / 2;
+              radiusX = 265;
+              radiusY = 210;
+            }
+
+            const x = Math.round(centerX + radiusX * Math.cos(angle));
+            const y = Math.round(centerY + radiusY * Math.sin(angle));
+
+            const ratio = maxUsage === minUsage ? 0.6 : ((t.usage_count || 1) - minUsage) / (maxUsage - minUsage);
+            const r = Math.round(14 + ratio * 16);
+            nodePositions.set(t.tag_name, { x, y, r, tag: t, rank: idx });
+          });
+
+          // 共起エッジ描画
+          edges.forEach((edge) => {
+            const p1 = nodePositions.get(edge.source);
+            const p2 = nodePositions.get(edge.target);
+            if (!p1 || !p2) return;
+
+            const isConnectedToSelected =
+              state.selectedTag && (edge.source === state.selectedTag || edge.target === state.selectedTag);
+
+            if (!isConnectedToSelected && edge.weight < GRAPH_COOC_DEFAULT_MIN_WEIGHT) {
+              return;
+            }
+
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", String(p1.x));
+            line.setAttribute("y1", String(p1.y));
+            line.setAttribute("x2", String(p2.x));
+            line.setAttribute("y2", String(p2.y));
+            line.setAttribute("stroke", isConnectedToSelected ? "#38bdf8" : "#475569");
+            line.setAttribute("stroke-opacity", isConnectedToSelected ? "0.9" : "0.3");
+            line.setAttribute("stroke-width", String(Math.min(1.2 + edge.weight * 1.1, 5)));
+            if (isConnectedToSelected && edge.weight < GRAPH_COOC_DEFAULT_MIN_WEIGHT) {
+              line.setAttribute("stroke-dasharray", "4 3");
+            }
+            edgesGroup.appendChild(line);
+          });
+        }
+
+        // ノード本体とスマートラベリングの描画（共通）
+        nodePositions.forEach((pos, tagName) => {
+          const isSelected = tagName === state.selectedTag;
+          const isNeighbor = edges.some(
+            (e) =>
+              (e.source === state.selectedTag && e.target === tagName) ||
+              (e.target === state.selectedTag && e.source === tagName)
+          );
+
+          const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          g.setAttribute("class", "graph-node");
+          g.setAttribute("transform", `translate(${pos.x}, ${pos.y})`);
+
+          // 選択時の外周パルスリング
+          if (isSelected) {
+            const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            halo.setAttribute("r", String(pos.r + 8));
+            halo.setAttribute("fill", "none");
+            halo.setAttribute("stroke", "#38bdf8");
+            halo.setAttribute("stroke-width", "2");
+            halo.setAttribute("stroke-dasharray", "4 3");
+            g.appendChild(halo);
+          }
+
+          // ノード円
+          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          circle.setAttribute("r", String(pos.r));
+          if (pos.isCenter || isSelected) {
+            circle.setAttribute("fill", "url(#nodeGlowSelected)");
+            circle.setAttribute("stroke", "#bae6fd");
+            circle.setAttribute("stroke-width", "2.5");
+          } else if (state.graphMode === "focus" || isNeighbor) {
+            circle.setAttribute("fill", "url(#nodeGlowNeighbor)");
+            circle.setAttribute("stroke", "#5eead4");
+            circle.setAttribute("stroke-width", "1.8");
+          } else {
+            circle.setAttribute("fill", "url(#nodeGlowDefault)");
+            circle.setAttribute("stroke", "#6366f1");
+            circle.setAttribute("stroke-width", "1.2");
+          }
+          circle.setAttribute("filter", "url(#nodeShadow)");
+          g.appendChild(circle);
+
+          // ノード中央の数字
+          const countText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          countText.setAttribute("text-anchor", "middle");
+          countText.setAttribute("dy", "4");
+          countText.setAttribute("fill", "#ffffff");
+          countText.setAttribute("font-size", pos.r >= 24 ? "12" : "10");
+          countText.setAttribute("font-weight", "bold");
+          countText.setAttribute("pointer-events", "none");
+          countText.textContent = `${pos.weight !== undefined ? pos.weight : (pos.tag.usage_count || 1)}`;
+          g.appendChild(countText);
+
+          // スマートラベリング判定
+          const shouldShowLabel =
+            state.graphMode === "focus" ||
+            isSelected ||
+            isNeighbor ||
+            (pos.rank !== undefined && pos.rank < 4);
+
+          const labelGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          labelGroup.setAttribute("class", "node-label-group");
+          if (!shouldShowLabel) {
+            labelGroup.setAttribute("style", "opacity: 0; transition: opacity 0.15s ease;");
+          }
+
+          const labelText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          labelText.setAttribute("text-anchor", "middle");
+          labelText.setAttribute("dy", String(pos.r + 15));
+          labelText.setAttribute("fill", isSelected ? "#38bdf8" : isNeighbor ? "#2dd4bf" : "#e2e8f0");
+          labelText.setAttribute("font-size", isSelected ? "13" : "11");
+          labelText.setAttribute("font-weight", isSelected ? "700" : "600");
+          labelText.setAttribute("style", "paint-order: stroke fill; stroke: #0b1120; stroke-width: 4px; stroke-linejoin: round;");
+          labelText.setAttribute("pointer-events", "none");
+          labelText.textContent = `#${tagName}`;
+          labelGroup.appendChild(labelText);
+          g.appendChild(labelGroup);
+
+          // ホバー・ツールチップ
+          g.addEventListener("mouseenter", (e) => {
+            if (!shouldShowLabel) {
+              labelGroup.setAttribute("style", "opacity: 1; transition: opacity 0.15s ease;");
+            }
+            const wrapperRect = document.getElementById("svgGraphWrapper").getBoundingClientRect();
+            const relX = e.clientX - wrapperRect.left;
+            const relY = e.clientY - wrapperRect.top;
+            const extra = pos.weight !== undefined ? ` (共起: ${pos.weight}回)` : "";
+            showTooltip(
+              relX,
+              relY,
+              `<span class="text-sky-300 font-bold">#${escapeHtml(tagName)}</span>${extra}<br><span class="text-slate-400 text-[10px]">累計出現: ${pos.tag.usage_count || 1}回</span>`
+            );
+          });
+
+          g.addEventListener("mouseleave", () => {
+            if (!shouldShowLabel) {
+              labelGroup.setAttribute("style", "opacity: 0; transition: opacity 0.15s ease;");
+            }
+            hideTooltip();
+          });
+
+          // クリックで探索移動
+          g.addEventListener("click", () => {
+            hideTooltip();
+            navigateToTag(tagName, true);
+          });
+
+          nodesGroup.appendChild(g);
+        });
+      }
+
+      // 3. 右ペイン：選択タグ詳細と関連レコード一覧
+      const headerEl = document.getElementById("selectedTagHeader");
+      const recordsEl = document.getElementById("selectedTagRecordsList");
+      const countEl = document.getElementById("selectedTagRecordCount");
+
+      const currentTagObj = tags.find((t) => t.tag_name === state.selectedTag);
+      if (!currentTagObj) {
+        headerEl.innerHTML = `<div class="text-xs text-slate-400">タグを選択してください</div>`;
+        recordsEl.innerHTML = "";
+        countEl.textContent = "0件";
+        return;
+      }
+
+      // 共起タグの抽出
+      const coTags = [];
+      edges.forEach((e) => {
+        if (e.source === currentTagObj.tag_name) coTags.push({ name: e.target, count: e.weight });
+        if (e.target === currentTagObj.tag_name) coTags.push({ name: e.source, count: e.weight });
+      });
+      coTags.sort((a, b) => b.count - a.count);
+
+      headerEl.innerHTML = `
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <span class="text-[11px] font-mono text-purple-300 bg-purple-500/20 px-2 py-0.5 rounded border border-purple-500/30">tag_dictionary</span>
+            <h3 class="text-base font-bold text-white mt-1">#${escapeHtml(currentTagObj.tag_name)}</h3>
+          </div>
+          <div class="text-right">
+            <div class="text-xs text-slate-400">累計出現 (usage_count)</div>
+            <div class="text-lg font-mono font-bold text-sky-400">${currentTagObj.usage_count ?? "NULL"} <span class="text-xs font-normal text-slate-400">回</span></div>
+          </div>
+        </div>
+        <div class="mt-2 text-xs text-slate-300 font-mono">
+          最終出現 (last_seen_at): ${escapeHtml(formatTimestamptzToJST(currentTagObj.last_seen_at) || "NULL")}
+        </div>
+        <div class="mt-2">
+          <span class="text-[11px] text-slate-400 block mb-1">同一レコードで共起しているタグ:</span>
+          <div class="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+            ${
+              coTags.length > 0
+                ? coTags.map((ct) => `<button type="button" data-cotag="${escapeHtml(ct.name)}" class="cotag-jump-btn text-[11px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700">#${escapeHtml(ct.name)} (${ct.count})</button>`).join("")
+                : `<span class="text-[11px] text-slate-500">共起タグなし</span>`
+            }
+          </div>
+        </div>
+      `;
+
+      headerEl.querySelectorAll(".cotag-jump-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          navigateToTag(btn.getAttribute("data-cotag"), true);
+        });
+      });
+
+      const matchingRecords = taggedRecords.filter((r) => (r.tags || []).includes(currentTagObj.tag_name));
+      countEl.textContent = `${matchingRecords.length}件`;
+
+      if (matchingRecords.length === 0) {
+        recordsEl.innerHTML = `<div class="text-xs text-slate-500 p-4 text-center">現在の日付・カテゴリ条件で一致する記録はありません</div>`;
+      } else {
+        recordsEl.innerHTML = matchingRecords.map((rec) => {
+          const schema = STRICT_TABLE_SCHEMAS[rec.source_type];
+          return `
+            <div class="bg-slate-950/90 border border-slate-800 hover:border-sky-500/50 rounded-lg p-3 transition cursor-pointer" data-record-key="${rec._ui_key}">
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded border ${schema.badgeColor}">${rec.source_type}</span>
+                <span class="text-[11px] font-mono text-slate-400">${escapeHtml(rec.display_time || "NULL")}</span>
+              </div>
+              <div class="text-xs font-bold text-slate-100 mb-1">${escapeHtml(rec.title)}</div>
+              <p class="text-xs text-slate-300 line-clamp-2">${escapeHtml(rec.summary)}</p>
+            </div>
+          `;
+        }).join("");
+
+        recordsEl.querySelectorAll("[data-record-key]").forEach((card) => {
+          card.addEventListener("click", () => {
+            openDetailDrawer(card.getAttribute("data-record-key"));
+          });
+        });
+      }
+    }
+    function applyGraphViewportTransform() {
+      const vp = document.getElementById("graphViewport");
+      vp.setAttribute(
+        "transform",
+        `translate(${350 * (1 - state.graphZoom) + state.graphPanX}, ${260 * (1 - state.graphZoom) + state.graphPanY}) scale(${state.graphZoom})`
+      );
+    }
+
+    /**
+     * =========================================================================
+     * 8. 画面2：統合タイムラインの描画（事実と解釈の厳密分離・NULL明示）
+     * =========================================================================
+     */
+    function renderTimelineView() {
+      const keyword = document.getElementById("timelineKeyword").value.trim().toLowerCase();
+      const sourceFilter = document.getElementById("timelineSourceFilter").value;
+      const dateFrom = document.getElementById("timelineDateFrom").value;
+      const dateTo = document.getElementById("timelineDateTo").value;
+      const sortOrder = document.getElementById("timelineSortOrder").value;
+
+      // tag_dictionary マスタ自体はタイムラインのイベントではないため除外（または選択時のみ）
+      const filtered = state.unifiedRecords.filter((rec) => {
+        if (rec.source_type === "tag_dictionary") return false;
+        if (sourceFilter !== "ALL" && rec.source_type !== sourceFilter) return false;
+
+        if (rec.record_date) {
+          if (dateFrom && rec.record_date < dateFrom) return false;
+          if (dateTo && rec.record_date > dateTo) return false;
+        } else {
+          // meal_logs など日付カラムを持たないレコードは、日付範囲が指定されている場合は除外
+          if (dateFrom || dateTo) return false;
+        }
+
+        if (keyword) {
+          const haystack = [
+            rec.title,
+            rec.summary,
+            rec.category,
+            ...(rec.tags || []),
+            JSON.stringify(rec.source_fields)
+          ].join(" ").toLowerCase();
+          if (!haystack.includes(keyword)) return false;
+        }
+        return true;
+      });
+
+      document.getElementById("timelineCountSummary").textContent = `表示対象: ${filtered.length} 件`;
+
+      // 日付ごとにグループ化
+      const groupsMap = new Map();
+      const datelessGroup = [];
+
+      filtered.forEach((rec) => {
+        if (!rec.record_date) {
+          datelessGroup.push(rec);
+        } else {
+          if (!groupsMap.has(rec.record_date)) {
+            groupsMap.set(rec.record_date, []);
+          }
+          groupsMap.get(rec.record_date).push(rec);
+        }
+      });
+
+      const sortedDates = Array.from(groupsMap.keys()).sort((a, b) =>
+        sortOrder === "desc" ? b.localeCompare(a) : a.localeCompare(b)
+      );
+
+      const container = document.getElementById("timelineGroupsContainer");
+      if (sortedDates.length === 0 && datelessGroup.length === 0) {
+        container.innerHTML = `
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-xs text-slate-400">
+            指定された条件に一致するタイムライン記録はありません。
+          </div>
+        `;
+        return;
+      }
+
+      let html = sortedDates.map((dateStr) => {
+        const items = groupsMap.get(dateStr);
+        items.sort((a, b) => (sortOrder === "desc" ? b.sort_timestamp - a.sort_timestamp : a.sort_timestamp - b.sort_timestamp));
+
+        return `
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl overflow-hidden shadow">
+            <!-- Date Group Header -->
+            <div class="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <span class="text-sm font-bold font-mono text-sky-400">📅 ${escapeHtml(dateStr)}</span>
+                <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono">JST基準日</span>
+              </div>
+              <span class="text-xs font-mono text-slate-400">${items.length} 件の記録</span>
+            </div>
+
+            <!-- Records inside this Date -->
+            <div class="divide-y divide-slate-800/80">
+              ${items.map((rec) => renderTimelineItemCard(rec)).join("")}
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      // meal_logs など日付を持たない/未記録の独立情報源グループ
+      if (datelessGroup.length > 0) {
+        html += `
+          <div class="bg-slate-900/90 border border-rose-900/50 rounded-xl overflow-hidden shadow">
+            <div class="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-bold text-rose-300">🍽️ 独立情報源（日時未記録のレコード）</span>
+                <span class="text-[11px] text-slate-400">※日時情報を持たないか未記録のレコードを独立表示</span>
+              </div>
+              <span class="text-xs font-mono text-slate-400">${datelessGroup.length} 件</span>
+            </div>
+            <div class="divide-y divide-slate-800/80">
+              ${datelessGroup.map((rec) => renderTimelineItemCard(rec)).join("")}
+            </div>
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
+
+      container.querySelectorAll("[data-record-key]").forEach((el) => {
+        el.addEventListener("click", () => {
+          openDetailDrawer(el.getAttribute("data-record-key"));
+        });
+      });
+    }
+
+    function renderTimelineItemCard(rec) {
+      const schema = STRICT_TABLE_SCHEMAS[rec.source_type];
+      const sf = rec.source_fields;
+      const timeTypeBadge = rec.record_date === null
+        ? `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">日時カラムなし</span>`
+        : rec.is_datetime
+          ? `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700/50">TIMESTAMPTZ (日時)</span>`
+          : `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 border border-amber-700/40">DATE (日付のみ)</span>`;
+
+      let specializedBody = "";
+
+      if (rec.source_type === "daily_logs") {
+        // ルールA: daily_summary(事実)とmetacognitive_insight(深層洞察)を明確に区別、mental_statusは非医学的診断と明記
+        const frictions = Array.isArray(sf.unresolved_frictions) && sf.unresolved_frictions.length > 0
+          ? sf.unresolved_frictions.map((f) => `<li class="text-xs text-amber-200">${escapeHtml(f)}</li>`).join("")
+          : null;
+
+        specializedBody = `
+          <div class="space-y-2 mt-2">
+            <div class="fact-box p-2.5 rounded-r text-xs">
+              <div class="font-bold text-sky-300 mb-0.5">【事実・行動タイムライン (daily_summary)】</div>
+              <div class="prose prose-sm prose-invert max-w-none text-slate-300">${renderMarkdown(sf.daily_summary)}</div>
+            </div>
+            <div class="insight-box p-2.5 rounded-r text-xs">
+              <div class="font-bold text-purple-300 mb-0.5">【深層メタ認知洞察 (metacognitive_insight) ※解釈】</div>
+              <div class="prose prose-sm prose-invert max-w-none text-slate-300">${renderMarkdown(sf.metacognitive_insight)}</div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <span class="text-slate-400">AIメンタル判定 (※医学的診断ではありません):</span>
+              <span class="font-mono text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-700/50">${renderNullOrText(sf.mental_status)}</span>
+            </div>
+            <div class="friction-box p-2 rounded-r text-xs">
+              <span class="font-semibold text-amber-300">未解決の疑問・摩擦 (unresolved_frictions):</span>
+              ${frictions ? `<ul class="list-disc list-inside mt-1 space-y-0.5">${frictions}</ul>` : `<span class="ml-2">${renderNullOrText(sf.unresolved_frictions)}</span>`}
+            </div>
+          </div>
+        `;
+      } else if (rec.source_type === "workout_logs") {
+        // ルールH: 実績サマリーとAIフィードバック(評価・解釈)を区別
+        specializedBody = `
+          <div class="space-y-2 mt-2">
+            <div class="fact-box p-2.5 rounded-r text-xs">
+              <div class="font-bold text-sky-300 mb-0.5">【実績サマリー (summary) ※事実記録】</div>
+              <div class="prose prose-sm prose-invert max-w-none text-slate-300">${renderMarkdown(sf.summary)}</div>
+            </div>
+            <div class="ai-eval-box p-2.5 rounded-r text-xs">
+              <div class="font-bold text-emerald-300 mb-0.5">【AIコーチフィードバック (coach_feedback) ※AIによる評価・解釈】</div>
+              <div class="prose prose-sm prose-invert max-w-none text-slate-300">${renderMarkdown(sf.coach_feedback)}</div>
+            </div>
+          </div>
+        `;
+      } else if (rec.source_type === "health_logs") {
+        // ルールG: steps使用 (旧step_countにもフォールバック)、NULLを0にしない、診断や因果関係の断定を行わない
+        const stepVal = sf.steps !== undefined ? sf.steps : sf.step_count;
+        specializedBody = `
+          <div class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div class="bg-slate-950 p-2 rounded border border-slate-800">
+              <div class="text-slate-400 text-[11px]">睡眠時間 (sleep_hours)</div>
+              <div class="font-mono font-bold text-white mt-0.5">${sf.sleep_hours !== null && sf.sleep_hours !== undefined ? `${sf.sleep_hours} 時間` : renderNullOrText(null)}</div>
+            </div>
+            <div class="bg-slate-950 p-2 rounded border border-slate-800">
+              <div class="text-slate-400 text-[11px]">歩数 (steps)</div>
+              <div class="font-mono font-bold text-white mt-0.5">${stepVal !== null && stepVal !== undefined ? `${Number(stepVal).toLocaleString()} 歩` : renderNullOrText(null)}</div>
+            </div>
+            <div class="bg-slate-950 p-2 rounded border border-slate-800">
+              <div class="text-slate-400 text-[11px]">安静時心拍 (resting_heart_rate)</div>
+              <div class="font-mono font-bold text-white mt-0.5">${sf.resting_heart_rate !== null && sf.resting_heart_rate !== undefined ? `${sf.resting_heart_rate} bpm` : renderNullOrText(null)}</div>
+            </div>
+            <div class="bg-slate-950 p-2 rounded border border-slate-800">
+              <div class="text-slate-400 text-[11px]">HRV (hrv_rmssd)</div>
+              <div class="font-mono font-bold text-white mt-0.5">${sf.hrv_rmssd !== null && sf.hrv_rmssd !== undefined ? `${sf.hrv_rmssd} ms` : renderNullOrText(null)}</div>
+            </div>
+          </div>
+        `;
+      } else if (rec.source_type === "location_logs") {
+        const placeDisplay = sf.place_name !== null && sf.place_name !== undefined && sf.place_name !== ""
+          ? escapeHtml(sf.place_name)
+          : `<span class="null-badge">場所情報なし (place_name IS NULL)</span>`;
+        specializedBody = `
+          <div class="mt-1.5 text-xs text-slate-200">
+            滞在場所テキスト (` + "`place_name`" + `): <strong>${placeDisplay}</strong>
+            <span class="text-[11px] text-slate-500 ml-2">※地図・緯度経度・速度は取得しません</span>
+          </div>
+        `;
+      } else {
+        if (["voice_insights", "quick_memos", "media_logs"].includes(rec.source_type)) {
+          specializedBody = `<div class="prose prose-sm prose-invert max-w-none text-slate-300 mt-1.5">${renderMarkdown(rec.summary)}</div>`;
+        } else {
+          specializedBody = `<p class="text-xs text-slate-300 mt-1.5">${escapeHtml(rec.summary)}</p>`;
+        }
+      }
+
+      const tagsHtml = (rec.tags || []).length > 0
+        ? `<div class="flex flex-wrap gap-1 mt-2">${rec.tags.map((t) => `<span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-sky-300 border border-slate-700">#${escapeHtml(t)}</span>`).join("")}</div>`
+        : "";
+
+      return `
+        <div class="p-3.5 sm:p-4 hover:bg-slate-800/40 transition cursor-pointer" data-record-key="${rec._ui_key}">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs font-mono px-2 py-0.5 rounded border ${schema.badgeColor}">${rec.source_type}</span>
+              ${timeTypeBadge}
+              <span class="text-xs font-mono text-slate-300">${escapeHtml(rec.display_time || "NULL")}</span>
+            </div>
+            <span class="text-[11px] text-sky-400 hover:underline">詳細パネルを開く ➔</span>
+          </div>
+          <h4 class="text-sm font-bold text-white mt-1.5">${escapeHtml(rec.title)}</h4>
+          ${specializedBody}
+          ${tagsHtml}
+        </div>
+      `;
+    }
+
+    /**
+     * =========================================================================
+     * 9. 画面3：クロス検索とJSON/CSVエクスポート（セクション6 & セクション8）
+     * =========================================================================
+     */
+    function getFilteredSearchResults() {
+      const keyword = document.getElementById("searchKeyword").value.trim().toLowerCase();
+      const sourceFilter = document.getElementById("searchSourceFilter").value;
+      const categoryFilter = document.getElementById("searchCategoryFilter").value;
+      const tagFilter = document.getElementById("searchTagFilter").value;
+      const dateFrom = document.getElementById("searchDateFrom").value;
+      const dateTo = document.getElementById("searchDateTo").value;
+      const includeDateless = document.getElementById("searchIncludeDateless").checked;
+
+      return state.unifiedRecords.filter((rec) => {
+        if (sourceFilter !== "ALL" && rec.source_type !== sourceFilter) return false;
+        if (categoryFilter !== "ALL" && rec.category !== categoryFilter) return false;
+        if (tagFilter !== "ALL" && !(rec.tags || []).includes(tagFilter)) return false;
+
+        if (rec.record_date) {
+          if (dateFrom && rec.record_date < dateFrom) return false;
+          if (dateTo && rec.record_date > dateTo) return false;
+        } else {
+          if (!includeDateless) return false;
+        }
+
+        if (keyword) {
+          const textBlob = [
+            rec.source_type,
+            rec.title,
+            rec.summary,
+            rec.category,
+            ...(rec.tags || []),
+            JSON.stringify(rec.source_fields)
+          ].join(" ").toLowerCase();
+          if (!textBlob.includes(keyword)) return false;
+        }
+
+        return true;
+      });
+    }
+
+    function renderCrossSearchView() {
+      const results = getFilteredSearchResults();
+      document.getElementById("searchResultCount").textContent = String(results.length);
+
+      // エクスポート事前確認パネルの更新
+      const sourceCounts = {};
+      results.forEach((r) => {
+        sourceCounts[r.source_type] = (sourceCounts[r.source_type] || 0) + 1;
+      });
+
+      const keyword = document.getElementById("searchKeyword").value.trim();
+      const sourceFilter = document.getElementById("searchSourceFilter").value;
+      const categoryFilter = document.getElementById("searchCategoryFilter").value;
+      const tagFilter = document.getElementById("searchTagFilter").value;
+      const dateFrom = document.getElementById("searchDateFrom").value;
+      const dateTo = document.getElementById("searchDateTo").value;
+
+      const activeFilterParts = [
+        `キーワード: ${keyword ? `"${keyword}"` : "指定なし"}`,
+        `ソース: ${sourceFilter}`,
+        `カテゴリ: ${categoryFilter}`,
+        `タグ: ${tagFilter}`,
+        `期間: ${dateFrom || "制限なし"} 〜 ${dateTo || "制限なし"}`
+      ];
+      document.getElementById("exportFilterSummaryText").textContent =
+        `現在の絞り込み条件 [${activeFilterParts.join(" / ")}] — 出力対象: 計 ${results.length} 件`;
+
+      const breakdownEl = document.getElementById("exportSourceBreakdownBadges");
+      const entries = Object.entries(sourceCounts);
+      breakdownEl.innerHTML = entries.length > 0
+        ? entries.map(([src, cnt]) => {
+            const schema = STRICT_TABLE_SCHEMAS[src];
+            return `<span class="text-[11px] font-mono px-2 py-0.5 rounded border ${schema.badgeColor}">${src}: ${cnt}件</span>`;
+          }).join("")
+        : `<span class="text-[11px] text-slate-500">出力対象ソースなし (0件)</span>`;
+
+      const gridEl = document.getElementById("searchResultsContainer");
+      const emptyEl = document.getElementById("searchEmptyState");
+
+      if (results.length === 0) {
+        gridEl.innerHTML = "";
+        emptyEl.classList.remove("hidden");
+        return;
+      }
+
+      emptyEl.classList.add("hidden");
+      gridEl.innerHTML = results.map((rec) => {
+        const schema = STRICT_TABLE_SCHEMAS[rec.source_type];
+        return `
+          <article class="bg-slate-900 border border-slate-800 hover:border-sky-500/60 rounded-xl p-4 flex flex-col justify-between transition cursor-pointer shadow-xs" data-record-key="${rec._ui_key}">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="text-[11px] font-mono px-2 py-0.5 rounded border ${schema.badgeColor}">${rec.source_type}</span>
+                <span class="text-[11px] font-mono text-slate-400">${escapeHtml(rec.display_time || "NULL")}</span>
+              </div>
+              <div class="flex items-center gap-1.5 mb-1.5">
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">カテゴリ: ${escapeHtml(rec.category)}</span>
+              </div>
+              <h3 class="text-sm font-bold text-white mb-1.5">${escapeHtml(rec.title)}</h3>
+              <p class="text-xs text-slate-300 line-clamp-3">${escapeHtml(rec.summary)}</p>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap gap-1">
+                ${
+                  (rec.tags || []).length > 0
+                    ? rec.tags.map((t) => `<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-950 text-sky-300 border border-slate-800">#${escapeHtml(t)}</span>`).join("")
+                    : `<span class="text-[10px] text-slate-500">タグなし</span>`
+                }
+              </div>
+              <span class="text-[11px] text-sky-400 font-medium">詳細 ➔</span>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      gridEl.querySelectorAll("[data-record-key]").forEach((card) => {
+        card.addEventListener("click", () => {
+          openDetailDrawer(card.getAttribute("data-record-key"));
+        });
+      });
+    }
+
+    /**
+     * =========================================================================
+     * 10. エクスポート機能（セクション8：JSON / CSV）
+     * - 現在の検索結果のみをエクスポート
+     * - 取得対象カラムのみに限定（除外カラムは一切含めない）
+     * - サンプルデータと実データの出所を明記
+     * =========================================================================
+     */
+    function buildStrictExportRecords(results) {
+      return results.map((rec) => {
+        const allowedCols = STRICT_TABLE_SCHEMAS[rec.source_type].selectColumns;
+        const strictFields = {};
+        allowedCols.forEach((col) => {
+          strictFields[col] = Object.prototype.hasOwnProperty.call(rec.source_fields, col)
+            ? rec.source_fields[col]
+            : null;
+        });
+        return {
+          data_origin: repo.mode === "SAMPLE" ? "SAMPLE_DATA" : "SUPABASE_LIVE_DATA",
+          source_type: rec.source_type,
+          ...strictFields
+        };
+      });
+    }
+
+    function exportCurrentResultsAsJSON() {
+      const results = getFilteredSearchResults();
+      const strictRecords = buildStrictExportRecords(results);
+      const sourceBreakdown = {};
+      results.forEach((r) => {
+        sourceBreakdown[r.source_type] = (sourceBreakdown[r.source_type] || 0) + 1;
+      });
+
+      const payload = {
+        export_metadata: {
+          data_origin: repo.mode === "SAMPLE" ? "SAMPLE_DATA (架空サンプルデータ)" : "SUPABASE_LIVE_DATA (実データ)",
+          exported_at_jst: formatTimestamptzToJST(new Date().toISOString()),
+          total_count: strictRecords.length,
+          included_sources: sourceBreakdown,
+          active_filters: {
+            keyword: document.getElementById("searchKeyword").value.trim() || null,
+            source_type: document.getElementById("searchSourceFilter").value,
+            category: document.getElementById("searchCategoryFilter").value,
+            tag: document.getElementById("searchTagFilter").value,
+            date_from: document.getElementById("searchDateFrom").value || null,
+            date_to: document.getElementById("searchDateTo").value || null
+          }
+        },
+        records: strictRecords
+      };
+
+      const jsonStr = JSON.stringify(payload, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8" });
+      triggerFileDownload(blob, `second_brain_export_${repo.mode.toLowerCase()}_${Date.now()}.json`);
+    }
+
+    function escapeCsvCell(val) {
+      if (val === null || val === undefined) return "";
+      let str;
+      if (Array.isArray(val) || typeof val === "object") {
+        str = JSON.stringify(val);
+      } else {
+        str = String(val);
+      }
+      if (str.includes('"') || str.includes(",") || str.includes("\n") || str.includes("\r")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    }
+
+    function exportCurrentResultsAsCSV() {
+      const results = getFilteredSearchResults();
+      const strictRecords = buildStrictExportRecords(results);
+
+      // 現在の検索結果に含まれるテーブルの正規カラムユニオンのみを列ヘッダとする
+      const columnSet = new Set(["data_origin", "source_type"]);
+      results.forEach((rec) => {
+        STRICT_TABLE_SCHEMAS[rec.source_type].selectColumns.forEach((col) => columnSet.add(col));
+      });
+      const headers = Array.from(columnSet);
+
+      const csvLines = [
+        headers.map(escapeCsvCell).join(",")
+      ];
+
+      strictRecords.forEach((row) => {
+        const line = headers.map((h) => {
+          const val = Object.prototype.hasOwnProperty.call(row, h) ? row[h] : null;
+          return escapeCsvCell(val);
+        }).join(",");
+        csvLines.push(line);
+      });
+
+      // UTF-8 BOM付きで日本語文字化けを防止
+      const csvContent = "\uFEFF" + csvLines.join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+      triggerFileDownload(blob, `second_brain_export_${repo.mode.toLowerCase()}_${Date.now()}.csv`);
+    }
+
+    function triggerFileDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 200);
+    }
+
+    /**
+     * =========================================================================
+     * 11. 詳細パネル（ドロワー）の描画（セクション4 & セクション5準拠）
+     * =========================================================================
+     */
+    function openDetailDrawer(uiKey) {
+      const rec = state.unifiedRecords.find((r) => r._ui_key === uiKey);
+      if (!rec) return;
+
+      const schema = STRICT_TABLE_SCHEMAS[rec.source_type];
+      const sf = rec.source_fields;
+
+      const badgeEl = document.getElementById("detailSourceBadge");
+      badgeEl.className = `text-xs font-mono px-2.5 py-0.5 rounded border ${schema.badgeColor}`;
+      badgeEl.textContent = schema.label;
+
+      const originEl = document.getElementById("detailOriginBadge");
+      originEl.textContent = repo.mode === "SAMPLE" ? "SAMPLE DATA (架空サンプル)" : "LIVE SUPABASE DATA";
+
+      // テーブル別の特別表示ブロック構築
+      let specificHtml = "";
+
+      if (rec.source_type === "daily_logs") {
+        specificHtml = `
+          <div class="space-y-3">
+            <div class="fact-box p-3 rounded-r">
+              <div class="text-xs font-bold text-sky-300 mb-1">⏱️ 時系列の事実・行動 (daily_summary)</div>
+              <div class="prose prose-sm prose-invert max-w-none text-slate-300">${renderMarkdown(sf.daily_summary)}</div>
+            </div>
+            <div class="insight-box p-3 rounded-r">
+              <div class="text-xs font-bold text-purple-300 mb-1">🔭 深層洞察 (metacognitive_insight) ※事実と分離された解釈</div>
+              <div class="prose prose-sm prose-invert max-w-none text-slate-300">${renderMarkdown(sf.metacognitive_insight)}</div>
+            </div>
+            <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+              <div class="text-xs font-bold text-emerald-300 mb-1">🧠 mental_status（AIによる判定 ※医学的診断ではありません）</div>
+              <div class="text-xs text-slate-200">${renderNullOrText(sf.mental_status)}</div>
+            </div>
+            <div class="friction-box p-3 rounded-r">
+              <div class="text-xs font-bold text-amber-300 mb-1">⚠️ 未解決の疑問・摩擦 (unresolved_frictions)</div>
+              <div class="text-xs text-slate-200">${renderNullOrText(sf.unresolved_frictions)}</div>
+            </div>
+          </div>
+        `;
+      } else if (rec.source_type === "voice_insights") {
+        specificHtml = `
+          <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-slate-950 p-2.5 rounded border border-slate-800">
+                <span class="text-slate-400 block text-[11px]">話者 (speaker)</span>
+                <strong class="text-slate-100">${renderNullOrText(sf.speaker)}</strong>
+              </div>
+              <div class="bg-slate-950 p-2.5 rounded border border-slate-800">
+                <span class="text-slate-400 block text-[11px]">カテゴリ (category)</span>
+                <strong class="text-slate-100">${renderNullOrText(sf.category)}</strong>
+              </div>
+            </div>
+            <div class="insight-box p-3 rounded-r">
+              <div class="text-xs font-bold text-indigo-300 mb-1">🎙️ 抽出インサイト (insight)</div>
+              <div class="prose prose-sm prose-invert max-w-none text-slate-300">${renderMarkdown(sf.insight)}</div>
+            </div>
+            <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+              <div class="text-xs font-bold text-slate-300 mb-1">📌 元データの next_action 記録（※タスク自動作成や催促は行いません）</div>
+              <div class="prose prose-sm prose-invert max-w-none text-slate-300">${renderMarkdown(sf.next_action)}</div>
+            </div>
+            <p class="text-[11px] text-slate-500">※ルール4.Bにより、raw_transcript（全文文字起こし）および audio_file_id は取得・表示対象外です。</p>
+          </div>
+        `;
+      } else if (rec.source_type === "quick_memos") {
+        specificHtml = `
+          <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-slate-950 p-2.5 rounded border border-slate-800">
+                <span class="text-slate-400 block text-[11px]">対象日 (record_date)</span>
+                <strong class="font-mono text-sky-300">${renderNullOrText(sf.record_date, "NULL (created_atを参照)")}</strong>
+              </div>
+              <div class="bg-slate-950 p-2.5 rounded border border-slate-800">
+                <span class="text-slate-400 block text-[11px]">作成日時 (created_at JST)</span>
+                <strong class="font-mono text-slate-200">${renderNullOrText(formatTimestamptzToJST(sf.created_at))}</strong>
+              </div>
+            </div>
+            <div class="fact-box p-3 rounded-r">
+              <div class="text-xs font-bold text-amber-300 mb-1">📝 原文テキスト (content) [分類バッジ: ${escapeHtml(sf.category || "NULL")}]</div>
+              <div class="prose prose-sm prose-invert max-w-none text-slate-300">${renderMarkdown(sf.content)}</div>
+            </div>
+          </div>
+        `;
+      } else if (rec.source_type === "workout_logs") {
+        specificHtml = `
+          <div class="space-y-3">
+            <div class="fact-box p-3 rounded-r">
+              <div class="text-xs font-bold text-sky-300 mb-1">🏋️ 実績サマリー (summary) ※事実記録</div>
+              <div class="prose prose-sm prose-invert max-w-none text-slate-300">${renderMarkdown(sf.summary)}</div>
+            </div>
+            <div class="ai-eval-box p-3 rounded-r">
+              <div class="text-xs font-bold text-emerald-300 mb-1">🤖 AIフィードバック (coach_feedback) ※AIによる評価・解釈</div>
+              <div class="prose prose-sm prose-invert max-w-none text-slate-300">${renderMarkdown(sf.coach_feedback)}</div>
+            </div>
+          </div>
+        `;
+      } else if (rec.source_type === "media_logs") {
+        specificHtml = `
+          <div class="space-y-3">
+            <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs">
+              <span class="text-slate-400 block text-[11px]">住所テキスト (location_address) ※座標は取得対象外</span>
+              <strong class="text-slate-100">${renderNullOrText(sf.location_address, "NULL (住所記録なし)")}</strong>
+            </div>
+            <div class="ai-eval-box p-3 rounded-r">
+              <div class="text-xs font-bold text-fuchsia-300 mb-1">🖼️ 情景描写 (scene_description) ※AIによる記述</div>
+              <div class="prose prose-sm prose-invert max-w-none text-slate-300">${renderMarkdown(sf.scene_description)}</div>
+            </div>
+          </div>
+        `;
+      } else if (rec.source_type === "meal_logs") {
+        const items = Array.isArray(sf.food_items) ? sf.food_items : [];
+        specificHtml = `
+          <div class="space-y-3">
+            <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs">
+              <div class="text-slate-400 text-[11px] mb-1">品目 (food_items JSON配列)</div>
+              ${items.length > 0 ? renderNullOrText(items) : `<span class="null-badge">食事記録なし</span>`}
+            </div>
+            <div class="bg-slate-950 p-3 rounded border border-slate-800 text-xs">
+              <div class="text-slate-400 text-[11px]">エネルギー量 (calories_kcal) ※推定値であり実測値と断定しません</div>
+              <strong class="text-rose-300 font-mono text-sm">${sf.calories_kcal !== null && sf.calories_kcal !== undefined ? `${sf.calories_kcal} kcal (推定値)` : renderNullOrText(null)}</strong>
+            </div>
+          </div>
+        `;
+      }
+
+      // 正規取得カラム (`source_fields`) の厳密な一覧テーブル
+      const rawFieldsTableRows = schema.selectColumns.map((col) => {
+        const val = sf[col];
+        return `
+          <tr class="border-b border-slate-800/80">
+            <td class="py-2 px-2.5 font-mono text-sky-300 align-top whitespace-nowrap">${escapeHtml(col)}</td>
+            <td class="py-2 px-2.5 text-slate-200 align-top">${renderNullOrText(val)}</td>
+          </tr>
+        `;
+      }).join("");
+
+      // 関連付け（セクション5の仕様に基づく実在キー照合のみ）
+      let relatedHtml = "";
+      if (rec.source_type === "media_logs" || rec.source_type === "meal_logs") {
+        relatedHtml = `
+          <div class="text-xs text-slate-400 bg-slate-950 p-3 rounded-lg border border-slate-800">
+            ※セクション5の仕様により、<code>media_logs</code> と <code>meal_logs</code> は今回の取得カラムだけでは確実な結合キーが不足するため、取得対象外のIDを無断で取得せず独立した情報源として表示しています。
+          </div>
+        `;
+      } else {
+        const sameTagRecords = state.unifiedRecords.filter((other) => {
+          if (other._ui_key === rec._ui_key || other.source_type === "tag_dictionary") return false;
+          if (!rec.tags || rec.tags.length === 0 || !other.tags || other.tags.length === 0) return false;
+          return rec.tags.some((t) => other.tags.includes(t));
+        });
+
+        const sameDateRecords = rec.record_date
+          ? state.unifiedRecords.filter((other) => other._ui_key !== rec._ui_key && other.record_date === rec.record_date && other.source_type !== "tag_dictionary")
+          : [];
+
+        relatedHtml = `
+          <div class="space-y-3">
+            <div>
+              <h5 class="text-xs font-semibold text-slate-300 mb-1.5">🔗 タグ文字列一致による関連記録 (${sameTagRecords.length}件)</h5>
+              ${
+                sameTagRecords.length > 0
+                  ? `<div class="space-y-1.5">${sameTagRecords.map((r) => `
+                      <button type="button" data-jump-key="${r._ui_key}" class="drawer-jump-btn w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs flex items-center justify-between gap-2">
+                        <span class="truncate"><strong class="text-sky-300 font-mono">[${r.source_type}]</strong> ${escapeHtml(r.title)}</span>
+                        <span class="text-[10px] font-mono text-slate-400 shrink-0">${escapeHtml(r.record_date || "")}</span>
+                      </button>
+                    `).join("")}</div>`
+                  : `<div class="text-xs text-slate-500">一致するタグを持つ他レコードはありません</div>`
+              }
+            </div>
+            <div>
+              <h5 class="text-xs font-semibold text-slate-300 mb-1.5">📅 同一対象日 (${escapeHtml(rec.record_date || "日付なし")}) の記録 (${sameDateRecords.length}件)</h5>
+              ${
+                sameDateRecords.length > 0
+                  ? `<div class="space-y-1.5">${sameDateRecords.map((r) => `
+                      <button type="button" data-jump-key="${r._ui_key}" class="drawer-jump-btn w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs flex items-center justify-between gap-2">
+                        <span class="truncate"><strong class="text-emerald-300 font-mono">[${r.source_type}]</strong> ${escapeHtml(r.title)}</span>
+                        <span class="text-[10px] font-mono text-slate-400 shrink-0">${escapeHtml(r.display_time || "")}</span>
+                      </button>
+                    `).join("")}</div>`
+                  : `<div class="text-xs text-slate-500">同一日の他レコードはありません</div>`
+              }
+            </div>
+          </div>
+        `;
+      }
+
+      const contentEl = document.getElementById("detailDrawerContent");
+      contentEl.innerHTML = `
+        <div>
+          <div class="text-xs font-mono text-slate-400">${escapeHtml(rec.display_time || "日時情報なし")}</div>
+          <h3 class="text-base font-bold text-white mt-1">${escapeHtml(rec.title)}</h3>
+          ${
+            (rec.tags || []).length > 0
+              ? `<div class="flex flex-wrap gap-1.5 mt-2">${rec.tags.map((t) => `<span class="text-xs px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-700/50">#${escapeHtml(t)}</span>`).join("")}</div>`
+              : ""
+          }
+        </div>
+
+        ${specificHtml}
+
+        <div>
+          <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">取得カラム生データ (` + "`source_fields`" + ` — 除外カラム非含有)</h4>
+          <div class="bg-slate-950 border border-slate-800 rounded-lg overflow-hidden">
+            <table class="w-full text-xs">
+              <thead>
+                <tr class="bg-slate-900 border-b border-slate-800 text-slate-400 text-left">
+                  <th class="py-1.5 px-2.5">取得カラム名</th>
+                  <th class="py-1.5 px-2.5">値 (NULLは置換せず表示)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rawFieldsTableRows}
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-1.5 text-[11px] text-slate-500 font-mono">
+            SELECT対象外（除外済み）: ${schema.excludedColumns.join(", ")}
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800">
+          <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">関連レコード（実在キー照合のみ）</h4>
+          ${relatedHtml}
+        </div>
+      `;
+
+      contentEl.querySelectorAll(".drawer-jump-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          openDetailDrawer(btn.getAttribute("data-jump-key"));
+        });
+      });
+
+      document.getElementById("detailDrawerBackdrop").classList.remove("hidden");
+      document.getElementById("detailDrawer").classList.remove("translate-x-full");
+    }
+
+    function closeDetailDrawer() {
+      document.getElementById("detailDrawerBackdrop").classList.add("hidden");
+      document.getElementById("detailDrawer").classList.add("translate-x-full");
+    }
+
+    /**
+     * =========================================================================
+     * 12. フィルター選択肢の初期化と全体の再描画
+     * =========================================================================
+     */
+    function populateDynamicFilterOptions() {
+      // カテゴリ一覧
+      const categories = new Set();
+      const tags = new Set();
+
+      state.unifiedRecords.forEach((rec) => {
+        if (rec.category) categories.add(rec.category);
+        (rec.tags || []).forEach((t) => tags.add(t));
+      });
+
+      const sortedCategories = Array.from(categories).sort();
+      const sortedTags = Array.from(tags).sort();
+
+      const graphCatEl = document.getElementById("graphCategoryFilter");
+      const searchCatEl = document.getElementById("searchCategoryFilter");
+      const searchTagEl = document.getElementById("searchTagFilter");
+
+      const catOptionsHtml = `<option value="ALL">すべてのカテゴリ</option>` +
+        sortedCategories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+
+      graphCatEl.innerHTML = catOptionsHtml;
+      searchCatEl.innerHTML = catOptionsHtml;
+
+      searchTagEl.innerHTML = `<option value="ALL">すべてのタグ</option>` +
+        sortedTags.map((t) => `<option value="${escapeHtml(t)}">#${escapeHtml(t)}</option>`).join("");
+
+      // ヘッダー統計
+      document.getElementById("globalRecordCount").textContent = String(state.unifiedRecords.length);
+      document.getElementById("globalTagCount").textContent = String((state.rawTables.tag_dictionary || []).length);
+    }
+
+    function renderConnectionAuditTable() {
+      const rowsHtml = Object.entries(STRICT_TABLE_SCHEMAS).map(([tableName, schema]) => {
+        const query = repo.buildSelectQuery(tableName);
+        return `
+          <tr class="border-b border-slate-800">
+            <td class="p-2.5 font-mono font-bold text-sky-300 align-top">${escapeHtml(tableName)}</td>
+            <td class="p-2.5 font-mono text-emerald-300 align-top">${escapeHtml(schema.selectColumns.join(", "))}</td>
+            <td class="p-2.5 font-mono text-rose-300/80 align-top">${escapeHtml(schema.excludedColumns.join(", "))}</td>
+            <td class="p-2.5 font-mono text-slate-300 align-top text-[11px]">GET /rest/v1/${escapeHtml(query)}</td>
+          </tr>
+        `;
+      }).join("");
+
+      document.getElementById("schemaAuditTableContainer").innerHTML = `
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-slate-950 border-b border-slate-800 text-slate-400">
+              <th class="p-2.5">テーブル名</th>
+              <th class="p-2.5">取得対象カラム (SELECT固定)</th>
+              <th class="p-2.5">除外対象カラム (クエリ非含有)</th>
+              <th class="p-2.5">実発行エンドポイント</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      `;
+    }
+
+    function updateConnectionBannerUI() {
+      const badge = document.getElementById("connectionStatusBadge");
+      const desc = document.getElementById("modeBannerDescription");
+      const banner = document.getElementById("modeBanner");
+      const exportBadge = document.getElementById("exportDataOriginBadge");
+      const modalState = document.getElementById("modalConnectionStateText");
+
+      if (repo.mode === "SAMPLE") {
+        banner.className = "bg-amber-950/80 border-b border-amber-700/60 px-3 py-1.5 text-xs flex flex-wrap items-center justify-between gap-2";
+        badge.className = "inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>SUPABASE未接続：サンプルデータモード (SAMPLE DATA)`;
+        desc.textContent = `現在は架空のサンプルデータ（${state.unifiedRecords.length}件・10テーブル）を表示しています。実データではありません。`;
+        exportBadge.textContent = "DATA_ORIGIN: SAMPLE_DATA (架空サンプル)";
+        exportBadge.className = "text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40";
+        modalState.textContent = "SAMPLE_MODE (Supabase未接続・サンプル表示中)";
+        modalState.className = "font-mono text-amber-400";
+      } else {
+        banner.className = "bg-emerald-950/80 border-b border-emerald-700/60 px-3 py-1.5 text-xs flex flex-wrap items-center justify-between gap-2";
+        badge.className = "inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span>SUPABASE READ-ONLY 接続中 (LIVE DATA)`;
+        desc.textContent = `定義済みSELECTカラムのみを読み取り専用(GET)で取得しています（計 ${state.unifiedRecords.length} 件）。`;
+        exportBadge.textContent = "DATA_ORIGIN: SUPABASE_LIVE_DATA (実データ)";
+        exportBadge.className = "text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+        modalState.textContent = "SUPABASE_LIVE (Read-Only GET接続中)";
+        modalState.className = "font-mono text-emerald-400";
+      }
+    }
+
+    function switchView(viewName) {
+      state.currentView = viewName;
+      ["graph", "timeline", "search"].forEach((v) => {
+        const sec = document.getElementById(`view-${v}`);
+        if (v === viewName) {
+          sec.classList.remove("hidden");
+        } else {
+          sec.classList.add("hidden");
+        }
+      });
+
+      document.querySelectorAll(".nav-tab-btn").forEach((btn) => {
+        const isTarget = btn.getAttribute("data-view") === viewName;
+        if (isTarget) {
+          btn.classList.add("bg-sky-600", "text-white", "shadow");
+          btn.classList.remove("text-slate-400");
+        } else {
+          btn.classList.remove("bg-sky-600", "text-white", "shadow");
+          btn.classList.add("text-slate-400");
+        }
+      });
+
+      renderAllViews();
+    }
+
+    function renderAllViews() {
+      updateConnectionBannerUI();
+      renderKnowledgeGraphView();
+      renderTimelineView();
+      renderCrossSearchView();
+    }
+
+    async function loadDataAndRender() {
+      state.rawTables = await repo.fetchAllTables();
+      state.unifiedRecords = buildUnifiedRecords(state.rawTables);
+      populateDynamicFilterOptions();
+      renderAllViews();
+    }
+
+    /**
+     * =========================================================================
+     * 13. イベントリスナー登録と起動処理
+     * =========================================================================
+     */
+    window.addEventListener("DOMContentLoaded", async () => {
+      // タブ切り替え
+      document.querySelectorAll(".nav-tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          switchView(btn.getAttribute("data-view"));
+        });
+      });
+
+      // 画面1：ナレッジグラフ フィルターイベント
+      ["graphTagSearch", "graphCategoryFilter", "graphDateFrom", "graphDateTo", "graphSortOrder"].forEach((id) => {
+        document.getElementById(id).addEventListener("input", renderKnowledgeGraphView);
+        document.getElementById(id).addEventListener("change", renderKnowledgeGraphView);
+      });
+
+      document.getElementById("graphResetBtn").addEventListener("click", () => {
+        document.getElementById("graphTagSearch").value = "";
+        document.getElementById("graphCategoryFilter").value = "ALL";
+        document.getElementById("graphDateFrom").value = "";
+        document.getElementById("graphDateTo").value = "";
+        document.getElementById("graphSortOrder").value = "usage_desc";
+        renderKnowledgeGraphView();
+      });
+
+      // グラフ ナビゲーション（戻る・進む）
+      const backBtn = document.getElementById("graphHistoryBackBtn");
+      const fwdBtn = document.getElementById("graphHistoryForwardBtn");
+      if (backBtn) backBtn.addEventListener("click", historyBack);
+      if (fwdBtn) fwdBtn.addEventListener("click", historyForward);
+
+      // グラフ 表示モード切替（案A: フォーカス / 案B: 全体俯瞰）
+      const focusBtn = document.getElementById("graphModeFocusBtn");
+      const overviewBtn = document.getElementById("graphModeOverviewBtn");
+      if (focusBtn) {
+        focusBtn.addEventListener("click", () => {
+          state.graphMode = "focus";
+          renderKnowledgeGraphView();
+        });
+      }
+      if (overviewBtn) {
+        overviewBtn.addEventListener("click", () => {
+          state.graphMode = "overview";
+          renderKnowledgeGraphView();
+        });
+      }
+
+      // 案B用 Top N リミット変更
+      const limitSelect = document.getElementById("graphNodeLimit");
+      if (limitSelect) {
+        limitSelect.addEventListener("change", (e) => {
+          state.graphNodeLimit = e.target.value;
+          renderKnowledgeGraphView();
+        });
+      }
+
+      // グラフ拡大・縮小・リセット
+      document.getElementById("graphZoomInBtn").addEventListener("click", () => {
+        state.graphZoom = Math.min(state.graphZoom + 0.2, 2.5);
+        applyGraphViewportTransform();
+      });
+      document.getElementById("graphZoomOutBtn").addEventListener("click", () => {
+        state.graphZoom = Math.max(state.graphZoom - 0.2, 0.5);
+        applyGraphViewportTransform();
+      });
+      document.getElementById("graphZoomResetBtn").addEventListener("click", () => {
+        state.graphZoom = 1;
+        state.graphPanX = 0;
+        state.graphPanY = 0;
+        applyGraphViewportTransform();
+      });
+
+      // マウスホイールによるスムーズなズーム
+      const svgWrapper = document.getElementById("svgGraphWrapper");
+      if (svgWrapper) {
+        svgWrapper.addEventListener("wheel", (e) => {
+          e.preventDefault();
+          const delta = e.deltaY < 0 ? 0.15 : -0.15;
+          state.graphZoom = Math.min(Math.max(state.graphZoom + delta, 0.5), 2.5);
+          applyGraphViewportTransform();
+        }, { passive: false });
+
+        // マウスドラッグによるキャンバス移動（パン）
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+
+        svgWrapper.addEventListener("mousedown", (e) => {
+          if (e.target.closest(".graph-node")) return;
+          isDragging = true;
+          dragStartX = e.clientX - state.graphPanX;
+          dragStartY = e.clientY - state.graphPanY;
+        });
+
+        window.addEventListener("mousemove", (e) => {
+          if (!isDragging) return;
+          state.graphPanX = e.clientX - dragStartX;
+          state.graphPanY = e.clientY - dragStartY;
+          applyGraphViewportTransform();
+        });
+
+        window.addEventListener("mouseup", () => {
+          isDragging = false;
+        });
+      }
+
+      // 画面2：統合タイムライン フィルターイベント
+      ["timelineKeyword", "timelineSourceFilter", "timelineDateFrom", "timelineDateTo", "timelineSortOrder"].forEach((id) => {
+        document.getElementById(id).addEventListener("input", renderTimelineView);
+        document.getElementById(id).addEventListener("change", renderTimelineView);
+      });
+
+      document.getElementById("timelineResetBtn").addEventListener("click", () => {
+        document.getElementById("timelineKeyword").value = "";
+        document.getElementById("timelineSourceFilter").value = "ALL";
+        document.getElementById("timelineDateFrom").value = "";
+        document.getElementById("timelineDateTo").value = "";
+        document.getElementById("timelineSortOrder").value = "desc";
+        renderTimelineView();
+      });
+
+      // 画面3：クロス検索 フィルターイベント
+      ["searchKeyword", "searchSourceFilter", "searchCategoryFilter", "searchTagFilter", "searchDateFrom", "searchDateTo", "searchIncludeDateless"].forEach((id) => {
+        document.getElementById(id).addEventListener("input", renderCrossSearchView);
+        document.getElementById(id).addEventListener("change", renderCrossSearchView);
+      });
+
+      const resetCrossSearchFilters = () => {
+        document.getElementById("searchKeyword").value = "";
+        document.getElementById("searchSourceFilter").value = "ALL";
+        document.getElementById("searchCategoryFilter").value = "ALL";
+        document.getElementById("searchTagFilter").value = "ALL";
+        document.getElementById("searchDateFrom").value = "";
+        document.getElementById("searchDateTo").value = "";
+        document.getElementById("searchIncludeDateless").checked = true;
+        renderCrossSearchView();
+      };
+      document.getElementById("searchResetBtn").addEventListener("click", resetCrossSearchFilters);
+      document.getElementById("emptyStateResetBtn").addEventListener("click", resetCrossSearchFilters);
+
+      // エクスポートボタン
+      document.getElementById("exportJsonBtn").addEventListener("click", exportCurrentResultsAsJSON);
+      document.getElementById("exportCsvBtn").addEventListener("click", exportCurrentResultsAsCSV);
+
+      // 詳細ドロワー閉じる
+      document.getElementById("closeDetailDrawerBtn").addEventListener("click", closeDetailDrawer);
+      document.getElementById("detailDrawerBackdrop").addEventListener("click", closeDetailDrawer);
+
+      // クエリ仕様・接続モーダル開閉
+      const modalBackdrop = document.getElementById("connectionModalBackdrop");
+      document.getElementById("openConnectionModalBtn").addEventListener("click", () => {
+        renderConnectionAuditTable();
+        modalBackdrop.classList.remove("hidden");
+      });
+      document.getElementById("closeConnectionModalBtn").addEventListener("click", () => {
+        modalBackdrop.classList.add("hidden");
+      });
+
+      // サンプルモードへの復帰
+      document.getElementById("switchToSampleModeBtn").addEventListener("click", async () => {
+        repo.mode = "SAMPLE";
+        document.getElementById("connectionErrorBox").classList.add("hidden");
+        await loadDataAndRender();
+      });
+
+      // Read-Only Supabase 接続試行（フェーズB）
+      document.getElementById("connectSupabaseBtn").addEventListener("click", async () => {
+        const errBox = document.getElementById("connectionErrorBox");
+        errBox.classList.add("hidden");
+
+        const urlVal = document.getElementById("supabaseUrlInput").value.trim();
+        const keyVal = document.getElementById("supabaseAnonKeyInput").value.trim();
+
+        if (!urlVal.startsWith("https://")) {
+          errBox.textContent = "エラー: 有効な https:// のSupabase URLを入力してください。安全のためサンプルモードを維持します。";
+          errBox.classList.remove("hidden");
+          return;
+        }
+
+        const keyCheck = repo.validateAnonKeySafety(keyVal);
+        if (!keyCheck.ok) {
+          errBox.textContent = keyCheck.reason;
+          errBox.classList.remove("hidden");
+          return;
+        }
+
+        try {
+          repo.supabaseUrl = urlVal;
+          repo.supabaseAnonKey = keyVal;
+          repo.mode = "SUPABASE_LIVE";
+          await loadDataAndRender();
+          modalBackdrop.classList.add("hidden");
+        } catch (err) {
+          // 失敗時は接続済みと偽らず、エラーを表示してサンプルモードへ安全にフォールバック
+          repo.mode = "SAMPLE";
+          await loadDataAndRender();
+          errBox.textContent = `接続エラー（サンプルモードを維持しました）: ${err.message}`;
+          errBox.classList.remove("hidden");
+        }
+      });
+
+      // 初期ロード（APP_CONFIGがプレースホルダーの場合はサンプルデータモードで起動、設定済みの場合はRead-Only接続を試行）
+      try {
+        await loadDataAndRender();
+      } catch (err) {
+        console.warn("初期接続に失敗したためサンプルデータモードにフォールバックします:", err);
+        repo.mode = "SAMPLE";
+        await loadDataAndRender();
+      }
+    });
+  </script>
+</body>
+</html>
