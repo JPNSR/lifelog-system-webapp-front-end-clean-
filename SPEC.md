@@ -1,24 +1,38 @@
-# [機能名] 実装仕様書 (SPEC.md)
 
-## 1. 概要・ゴール（仕様）
-- このモジュール/スクリプトが解決する課題
-- 実装完了とみなす具体的なゴール
+##  本稼働・接続セットアップ手順（全4ステップ）
 
-## 2. 入出力とデータ定義（仕様）
-- **入力 (Input):** 受け取る引数、JSON形式、スプレッドシートの列構成など
-- **出力 (Output):** 返却するレスポンス、DB（Supabase等）への書き込み形式
+### Step 1: Supabase側の読み取り権限（RLS）の確認
 
-## 3. 処理ロジックの流れ（仕様）
-1. 外部APIからデータをフェッチする
-2. 取得データを所定のスキーマにパース・整形する
-3. DBへ差分アップデートを行う
+Supabaseのデータベースで、対象テーブル（`daily_logs`、`voice_insights` 等）に対して `anon` ロールでの `SELECT`（読み取り）が許可されているか（Row Level Security の設定）を確認します。
 
-## 4. セキュリティ & 実装の制約（★ここが超重要）
-- **秘密情報:** APIキーやパスワードをコード内にハードコード（直書き）することは絶対禁止。必ず `.env` や環境変数から読み込むこと。
-- **ファイルアクセス:** ルートディレクトリ以外の不要なシステムファイルへの読み書きは行わないこと。
-- **データ検証 (バリデーション):** 外部からの入力値は必ずサニタイズ（無害化）し、不正な型や空文字を弾くこと。
-- **破壊的変更の禁止:** 既存のテーブル構造や他モジュールの共通関数を勝手に改変・削除しないこと。
+### Step 2: 接続情報の設定（2通りの方法）
 
-## 5. エラーハンドリング（仕様兼セキュリティ）
-- APIエラー発生時、秘密情報や生のスタックトレース（内部構造）をそのままログや画面に出力しないこと。
-- 失敗時は安全にロールバック（またはログ記録して終了）すること。
+以下のいずれかの方法で Supabase プロジェクトに接続できます。
+
+1. **画面上のモーダルから接続（推奨・コード変更不要）**
+   * ブラウザで `index.html` を開きます（初期状態はサンプルデータモードで起動します）。
+   * 画面右上の **「クエリ仕様・接続設定」** ボタンを開き、`Supabase Project URL`（`https://<YOUR_PROJECT_ID>.supabase.co`）と `Anon Key` を入力して **「Read-Only接続を試行 (GETのみ)」** をクリックします。
+2. **`index.html` 内のプロパティ定数（`APP_CONFIG`）で設定（個人ローカル環境向け）**
+   * `index.html` 内の `<script>` 先頭にある `APP_CONFIG` オブジェクトのプレースホルダーを書き換えます。
+   ```javascript
+   const APP_CONFIG = Object.freeze({
+     SUPABASE_URL: "https://<YOUR_PROJECT_ID>.supabase.co",
+     SUPABASE_ANON_KEY: "<YOUR_SUPABASE_ANON_KEY>"
+   });
+   ```
+   > **注意**: 公開リポジトリ（GitHub等）へ Push する際は、必ずプレースホルダー（`YOUR_SUPABASE_PROJECT_URL` / `YOUR_SUPABASE_ANON_KEY`）の状態に戻してください。
+
+### Step 3: 実データ表示の動作確認
+
+ナレッジグラフ、統合タイムライン、クロス検索＆JSON/CSVエクスポート画面で実データが正しく表示されることを確認します。
+
+### Step 4: 静的ホスティング（GitHub Pages 等）での公開
+
+バックエンドサーバーを必要としない単一HTMLファイル（SPA）のため、GitHub Pages・Vercel・Cloudflare Pages 等の無料ホスティングサービスでそのまま配信できます。
+
+#### GitHub Pages の設定手順例:
+1. 変更をコミットし、`git push` で GitHub リポジトリ（`<YOUR_USERNAME>/lifelog-system`）へ反映します。
+2. GitHub リポジトリ上部の **Settings ➔ Pages** を開きます。
+3. **Source** を `Deploy from a branch`、**Branch** を `main`（フォルダは `/ (root)`）に設定して **Save** します。
+4. 数分後、`https://<YOUR_USERNAME>.github.io/lifelog-system/Webapp/` のURLが発行され、PCやスマートフォンのブラウザからアクセス可能になります。
+　※スマートフォン部分はまだ開発中です
