@@ -4,6 +4,15 @@
   > GASオーケストレーション、Gemini API推論、Supabase連携のバックエンドソースコードはこちらで公開しています。
 [![Backend Repo](https://img.shields.io/badge/GitHub-Backend%20Pipeline-181717?logo=github)](https://github.com/JPNSR/lifelog-system-Code-Drop-10-23)
 
+## 📸 スクリーンショット / デモ
+
+| ナレッジグラフ（共起ネットワーク） | 統合タイムライン（JST日次ストリーム） |
+| :---: | :---: |
+| ![ナレッジグラフ](images/デモ_サンプルデータモード_ナレッジグラフ部分.png) | ![タイムライン](images/デモ_サンプルデータモード_総合タイムライン.png) | ![ナレッジグラフ実環境](images/デモ_実環境_ナレッジグラフ画面.png) |
+| DB接続設定（Read-Only / サンプル切替） | クロス検索 ＆ エクスポート | 
+| :---: | :---: |
+| ![DB設定](images/デモ_DB接続_切替画面.png) | ![クロス検索](images/デモ_サンプルデータモード_クロス検索＆出力.png) | ![クロス検索jsonDL](images/デモ_サンプルデータモード_クロス検索＆出力_jsonDLデモ.png) |
+
 ## 本稼働・接続セットアップ手順
 SPEC.mdを参照
 
